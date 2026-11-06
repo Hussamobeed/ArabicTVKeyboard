@@ -20,6 +20,12 @@ adb shell ime set com.herannet.arabictvkeyboard/.ArabicImeService
 
 The service maps letters only while a text editor has focus. Back, arrows, volume, Home, Tab and Ctrl/Meta shortcuts remain available. Some TV apps use a private search UI and do not accept third-party Android IMEs. OEM behavior must be verified on the actual box.
 
+## Helper-panel design (0.1.5+)
+
+The guide uses translucent rounded keys with separate legends: Latin at the top-left, the Arabic letter centered, and the ALT letter in cyan at the top-right. The bottom row follows the reference design: ALT, SPACE, language switch, hide. Number mode remains accessible through the 123 button in the header and F3.
+
+When the app's ALT layer is armed or a hardware ALT event is held, the ALT key lights up, the panel border turns cyan, and the header displays **ALT مفعّل**. Secondary letters move into the center and receive a cyan highlight. The physical USB scan-code mapping and stored calibrations remain unchanged. Firmware-only ALT toggles that send no event to Android cannot be shown before another key is pressed; the on-screen ALT control always gives visible state.
+
 ## Layout / التوزيع
 
 The nearest sounds keep their English positions. Assignments for remaining letters are mnemonic choices, not standard transliteration.

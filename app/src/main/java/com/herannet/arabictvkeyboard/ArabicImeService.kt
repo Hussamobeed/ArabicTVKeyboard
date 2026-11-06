@@ -11,6 +11,7 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.util.Locale
@@ -19,6 +20,11 @@ class ArabicImeService : InputMethodService() {
     private lateinit var prefs: Prefs
     private var panel: LinearLayout? = null
     private var status: TextView? = null
+    private var legend: TextView? = null
+    private var altKey: GuideKey? = null
+    private var numbersKey: GuideKey? = null
+    private var physicalAltVisible = false
+    private var keyGlyphSize = 30f
     private var altArmed = false
     private var numbers = false
     private var numericEditor = false
@@ -27,7 +33,7 @@ class ArabicImeService : InputMethodService() {
     private var navigateGuide = false
     private val consumed = mutableSetOf<String>()
     private val rawModifiers = RawModifiers()
-    private val labels = mutableMapOf<Char, TextView>()
+    private val labels = mutableMapOf<Char, GuideKey>()
     private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate() { super.onCreate(); prefs = Prefs(this) }
@@ -47,7 +53,7 @@ class ArabicImeService : InputMethodService() {
             InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> true
             else -> false
         }
-        altArmed = false; numbers = numericEditor; consumed.clear(); rawModifiers.clear(); sessionHidden = false; navigateGuide = false
+        altArmed = false; numbers = numericEditor; consumed.clear(); rawModifiers.clear(); physicalAltVisible = false; sessionHidden = false; navigateGuide = false
         renderState()
         // Vendor boxes often suppress the IME when a USB keyboard is connected.
         // Keep this view in the IME window, with no global overlay/accessibility permissions.
@@ -57,7 +63,7 @@ class ArabicImeService : InputMethodService() {
     }
     override fun onFinishInput() {
         handler.removeCallbacksAndMessages(null)
-        hasEditor = false; altArmed = false; consumed.clear(); rawModifiers.clear()
+        hasEditor = false; altArmed = false; consumed.clear(); rawModifiers.clear(); physicalAltVisible = false
         super.onFinishInput()
     }
     override fun onDestroy() { handler.removeCallbacksAndMessages(null); super.onDestroy() }
@@ -75,59 +81,78 @@ class ArabicImeService : InputMethodService() {
             outInsets.touchableRegion.set(location[0], location[1], location[0] + guide.width, location[1] + guide.height)
         }
     }
+    private fun altVisible() = prefs.arabic && !numbers && (altArmed || physicalAltVisible)
     override fun onCreateInputView(): View {
         window.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        val root = Ui.column(this).apply {
-            setPadding(12, 6, 12, 6)
-            background = Ui.background(Color.argb(prefs.panelOpacity * 255 / 100, 17, 27, 43))
-        }
+        val rowHeight = (resources.configuration.screenHeightDp * 0.115f).toInt().coerceIn(42, 66)
+        keyGlyphSize = if (rowHeight < 50) 25f else 31f
+        val root = Ui.column(this).apply { setPadding(Ui.dp(this@ArabicImeService, 12), 7, Ui.dp(this@ArabicImeService, 12), 7) }
         panel = root; labels.clear()
-        status = Ui.text(this, "", 14f).apply { gravity = Gravity.CENTER }
-        root.addView(status)
+        val header = FrameLayout(this)
+        val title = Ui.text(this, "دليل الحروف", 22f).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, 0) }
+        header.addView(title, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 32)))
+        legend = Ui.text(this, "الأزرق مع ALT", 15f).apply { setTextColor(Ui.cyan); gravity = Gravity.CENTER; setPadding(4, 0, 4, 0) }
+        header.addView(legend, FrameLayout.LayoutParams(Ui.dp(this, 165), Ui.dp(this, 32), Gravity.LEFT))
+        numbersKey = GuideKey(this) { numbers = numericEditor || !numbers; altArmed = false; renderState() }
+        header.addView(numbersKey, FrameLayout.LayoutParams(Ui.dp(this, 76), Ui.dp(this, 30), Gravity.RIGHT))
+        root.addView(header)
+        fun addKey(row: LinearLayout, key: GuideKey, weight: Float = 1f, height: Int = rowHeight) {
+            row.addView(key, LinearLayout.LayoutParams(0, Ui.dp(this, height), weight).apply {
+                setMargins(Ui.dp(this@ArabicImeService, 3), Ui.dp(this@ArabicImeService, 3), Ui.dp(this@ArabicImeService, 3), Ui.dp(this@ArabicImeService, 3))
+            })
+        }
         KeyboardLayout.rows.forEachIndexed { index, letters ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             letters.forEach { letter ->
-                val key = Ui.button(this, "") { typeLetter(letter) }.apply {
-                    textSize = 19f
-                    contentDescription = "$letter ${KeyboardLayout.primary[letter]} ALT ${KeyboardLayout.secondary[letter].orEmpty()}"
-                }
+                val key = GuideKey(this) { typeLetter(letter) }
                 labels[letter] = key
-                row.addView(key, LinearLayout.LayoutParams(0, Ui.dp(this, 49), 1f).apply { setMargins(2, 2, 2, 2) })
+                addKey(row, key)
             }
-            if (index == 1) row.addView(Ui.button(this, "⌫") { delete() }, LinearLayout.LayoutParams(0, Ui.dp(this, 49), 1f))
-            if (index == 2) row.addView(Ui.button(this, "↵") { enter() }, LinearLayout.LayoutParams(0, Ui.dp(this, 49), 2f))
+            if (index == 1) addKey(row, GuideKey(this) { delete() }.apply { action("⌫\nBACKSPACE", size = 13f) }, 1.35f)
+            if (index == 2) {
+                addKey(row, GuideKey(this) {
+                    commit(if (altVisible()) "،" else "."); altArmed = false; renderState()
+                }.apply {
+                    action(".  ،", size = 25f)
+                    contentDescription = "نقطة، مع ALT فاصلة عربية، ضغط مطول علامة استفهام"
+                    setOnLongClickListener { commit("؟"); true }
+                })
+                addKey(row, GuideKey(this) { enter() }.apply { action("↵\nENTER", size = 17f) }, 1.6f)
+            }
             root.addView(row)
         }
         val controls = LinearLayout(this)
-        fun control(title: String, weight: Float = 1f, action: () -> Unit) {
-            controls.addView(Ui.button(this, title, action), LinearLayout.LayoutParams(0, Ui.dp(this, 43), weight).apply { setMargins(2, 3, 2, 0) })
-        }
-        control("ALT / F2") { altArmed = !altArmed; renderState() }
-        control("العربية / EN") { toggleLanguage() }
-        control("123 / F3") { numbers = numericEditor || !numbers; altArmed = false; renderState() }
-        control("مسافة", 2f) { commit(" ") }
-        control("،") { commit("،") }
-        control(".") { commit(".") }
-        control("؟") { commit("؟") }
-        control("إخفاء") { sessionHidden = true; navigateGuide = false; requestHideSelf(0) }
+        altKey = GuideKey(this) { altArmed = !altArmed; renderState() }
+        addKey(controls, altKey!!, 1.5f, rowHeight - 9)
+        addKey(controls, GuideKey(this) { commit(" ") }.apply { action("SPACE", size = 20f) }, 4f, rowHeight - 9)
+        addKey(controls, GuideKey(this) { toggleLanguage() }.apply { action("العربية / EN", size = 19f) }, 1.9f, rowHeight - 9)
+        addKey(controls, GuideKey(this) { sessionHidden = true; navigateGuide = false; requestHideSelf(0) }.apply { action("إخفاء", size = 20f) }, 1.5f, rowHeight - 9)
         root.addView(controls)
+        status = Ui.text(this, "", 11f).apply { gravity = Gravity.CENTER; setPadding(0, 2, 0, 0) }
+        root.addView(status)
         renderState()
         return root
     }
     private fun renderState() {
+        val active = altVisible()
+        legend?.text = if (active) "● ALT مفعّل" else "الأزرق مع ALT"
+        legend?.setTextColor(if (active) Color.WHITE else Ui.cyan)
+        legend?.background = if (active) Ui.background(Color.rgb(15, 107, 121), Ui.cyan) else null
+        altKey?.action(if (active) "ALT  ●" else "ALT", active, 22f)
+        numbersKey?.action(if (numbers) "ABC" else "123", numbers, 14f)
         status?.text = when {
-            numbers -> "123 — الأرقام تمر كما هي • F3 للعودة"
-            !prefs.arabic -> "English • CAPS: العربية • F2: ALT • Esc: إخفاء"
-            else -> "العربية • CAPS: EN • ${if (altArmed) "ALT مفعّل" else "F2: ALT"} • F3: 123 • OK: تنقّل • Esc: إخفاء"
+            numbers -> "123 — وضع الأرقام • F3 للعودة"
+            !prefs.arabic -> "English • CAPS: العربية • OK: تنقّل • Esc: إخفاء"
+            active -> "الحروف السماوية مفعّلة • اختر الحرف أو اضغط ALT للإلغاء"
+            else -> "CAPS: EN • ALT / F2: الحروف السماوية • F3: 123 • OK: تنقّل • Esc: إخفاء"
         }
-        panel?.background = Ui.background(Color.argb(prefs.panelOpacity * 255 / 100, 17, 27, 43))
-        labels.forEach { (letter, view) ->
-            val secondary = KeyboardLayout.secondary[letter]
-            view.text = when {
-                numbers -> KeyboardLayout.numeric.getValue(letter)
-                !prefs.arabic -> letter.toString()
-                altArmed -> "$letter  ${secondary ?: "—"}"
-                else -> "$letter  ${KeyboardLayout.primary[letter]}${if (secondary == null) "" else "  ·$secondary"}"
+        panel?.background = Ui.background(Color.argb(prefs.panelOpacity * 255 / 100, 17, 24, 37),
+            if (active) Ui.cyan else Color.argb(110, 111, 126, 148))
+        labels.forEach { (letter, key) ->
+            when {
+                numbers -> key.letter(letter, KeyboardLayout.numeric.getValue(letter), null, false, keyGlyphSize)
+                !prefs.arabic -> key.letter(letter, letter.toString(), null, false, keyGlyphSize)
+                else -> key.letter(letter, KeyboardLayout.primary.getValue(letter), KeyboardLayout.secondary[letter], active, keyGlyphSize)
             }
         }
     }
@@ -135,7 +160,7 @@ class ArabicImeService : InputMethodService() {
     private fun typeLetter(letter: Char) {
         if (numbers) commit(KeyboardLayout.numeric.getValue(letter))
         else if (!prefs.arabic) commit(letter.toString().lowercase(Locale.ROOT))
-        else commit(if (altArmed) KeyboardLayout.secondary[letter] ?: KeyboardLayout.primary.getValue(letter) else KeyboardLayout.primary.getValue(letter))
+        else commit(if (altVisible()) KeyboardLayout.secondary[letter] ?: KeyboardLayout.primary.getValue(letter) else KeyboardLayout.primary.getValue(letter))
         altArmed = false; renderState()
     }
     private fun toggleLanguage() { prefs.arabic = !prefs.arabic; altArmed = false; renderState() }
@@ -150,6 +175,7 @@ class ArabicImeService : InputMethodService() {
         val keyCode = RemoteKeys.actionKeyCode(event)
         if (!hasEditor || currentInputConnection == null) return super.onKeyDown(rawKeyCode, event)
         rawModifiers.update(event.deviceId, event.scanCode, true, event.repeatCount)
+        physicalAltVisible = event.isAltPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.ALT)
         if (event.isCtrlPressed || event.isMetaPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.CTRL) || rawModifiers.active(event.deviceId, UsbScanCodes.Action.META)) return super.onKeyDown(rawKeyCode, event)
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && isInputViewShown) {
             if (event.repeatCount == 0) {
@@ -210,6 +236,9 @@ class ArabicImeService : InputMethodService() {
     }
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         rawModifiers.update(event.deviceId, event.scanCode, false)
+        physicalAltVisible = rawModifiers.active(event.deviceId, UsbScanCodes.Action.ALT) ||
+            (RemoteKeys.actionKeyCode(event) !in setOf(KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT) && event.isAltPressed)
+        renderState()
         if (consumed.remove(RemoteKeys.pressedIdentity(event))) return true
         return super.onKeyUp(keyCode, event)
     }
