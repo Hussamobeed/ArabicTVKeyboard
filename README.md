@@ -10,7 +10,7 @@ Native Kotlin, Android 5.0+ (API 21), no Google services, no network permission,
 2. Open **Arabic TV Keyboard** from the TV launcher.
 3. Select **تفعيل لوحة الإدخال** and enable this keyboard in Android's input-method settings.
 4. Select **اختيار اللوحة** and choose Arabic TV Keyboard.
-5. Open a search/text box. The translucent keyboard guide appears in the IME area. Use the remote's English letter keys or navigate the on-screen keys with the D-pad.
+5. Open a search/text box. The translucent keyboard guide appears in the IME area. Use the remote's English letter keys. Press **OK** to enter the guide, navigate its keys with the D-pad, then press **OK** to type the focused key. **Esc** hides the guide and returns arrows to the editor.
 6. If your box hides keyboard settings, use ADB from your own computer as an optional fallback:
 
 ```sh

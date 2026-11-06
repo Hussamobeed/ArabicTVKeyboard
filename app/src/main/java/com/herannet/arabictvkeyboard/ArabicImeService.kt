@@ -24,13 +24,18 @@ class ArabicImeService : InputMethodService() {
     private var numericEditor = false
     private var hasEditor = false
     private var sessionHidden = false
+    private var navigateGuide = false
     private val consumed = mutableSetOf<Int>()
     private val labels = mutableMapOf<Char, TextView>()
     private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate() { super.onCreate(); prefs = Prefs(this) }
     override fun onEvaluateFullscreenMode() = false
-    override fun onEvaluateInputViewShown(): Boolean = hasEditor && prefs.showGuide && !sessionHidden
+    override fun onEvaluateInputViewShown(): Boolean {
+        super.onEvaluateInputViewShown()
+        // Also show for a connected hardware keyboard, unless the owner hides the guide.
+        return hasEditor && prefs.showGuide && !sessionHidden
+    }
     override fun onShowInputRequested(flags: Int, configChange: Boolean): Boolean = onEvaluateInputViewShown()
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
@@ -41,7 +46,7 @@ class ArabicImeService : InputMethodService() {
             InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> true
             else -> false
         }
-        altArmed = false; numbers = numericEditor; consumed.clear(); sessionHidden = false
+        altArmed = false; numbers = numericEditor; consumed.clear(); sessionHidden = false; navigateGuide = false
         renderState()
         // Vendor boxes often suppress the IME when a USB keyboard is connected.
         // Keep this view in the IME window, with no global overlay/accessibility permissions.
@@ -98,12 +103,12 @@ class ArabicImeService : InputMethodService() {
         }
         control("ALT / F2") { altArmed = !altArmed; renderState() }
         control("العربية / EN") { toggleLanguage() }
-        control("123 / F3") { numbers = !numbers; altArmed = false; renderState() }
+        control("123 / F3") { numbers = numericEditor || !numbers; altArmed = false; renderState() }
         control("مسافة", 2f) { commit(" ") }
         control("،") { commit("،") }
         control(".") { commit(".") }
         control("؟") { commit("؟") }
-        control("إخفاء") { sessionHidden = true; requestHideSelf(0) }
+        control("إخفاء") { sessionHidden = true; navigateGuide = false; requestHideSelf(0) }
         root.addView(controls)
         renderState()
         return root
@@ -112,7 +117,7 @@ class ArabicImeService : InputMethodService() {
         status?.text = when {
             numbers -> "123 — الأرقام تمر كما هي • F3 للعودة"
             !prefs.arabic -> "English • CAPS: العربية • F2: ALT • Esc: إخفاء"
-            else -> "العربية • CAPS: EN • ${if (altArmed) "ALT مفعّل" else "F2: ALT"} • F3: 123 • Esc: إخفاء"
+            else -> "العربية • CAPS: EN • ${if (altArmed) "ALT مفعّل" else "F2: ALT"} • F3: 123 • OK: تنقّل • Esc: إخفاء"
         }
         panel?.background = Ui.background(Color.argb(prefs.panelOpacity * 255 / 100, 17, 27, 43))
         labels.forEach { (letter, view) ->
@@ -143,6 +148,26 @@ class ArabicImeService : InputMethodService() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (!hasEditor || currentInputConnection == null) return super.onKeyDown(keyCode, event)
         if (event.isCtrlPressed || event.isMetaPressed) return super.onKeyDown(keyCode, event)
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && isInputViewShown) {
+            if (event.repeatCount == 0) {
+                if (navigateGuide) panel?.findFocus()?.performClick()
+                else { navigateGuide = true; labels['Q']?.requestFocus() }
+            }
+            return handled(keyCode)
+        }
+        if (navigateGuide && isInputViewShown) {
+            val direction = when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP -> View.FOCUS_UP
+                KeyEvent.KEYCODE_DPAD_DOWN -> View.FOCUS_DOWN
+                KeyEvent.KEYCODE_DPAD_LEFT -> View.FOCUS_LEFT
+                KeyEvent.KEYCODE_DPAD_RIGHT -> View.FOCUS_RIGHT
+                else -> null
+            }
+            if (direction != null) {
+                panel?.findFocus()?.focusSearch(direction)?.requestFocus()
+                return handled(keyCode)
+            }
+        }
         when (keyCode) {
             KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT, KeyEvent.KEYCODE_F2 -> {
                 if (event.repeatCount == 0) { altArmed = !altArmed; renderState() }
@@ -153,12 +178,12 @@ class ArabicImeService : InputMethodService() {
                 return handled(keyCode)
             }
             KeyEvent.KEYCODE_F3 -> {
-                if (event.repeatCount == 0) { numbers = !numbers; altArmed = false; renderState() }
+                if (event.repeatCount == 0) { numbers = numericEditor || !numbers; altArmed = false; renderState() }
                 return handled(keyCode)
             }
-            KeyEvent.KEYCODE_ESCAPE -> { sessionHidden = true; requestHideSelf(0); return handled(keyCode) }
+            KeyEvent.KEYCODE_ESCAPE -> { sessionHidden = true; navigateGuide = false; requestHideSelf(0); return handled(keyCode) }
             KeyEvent.KEYCODE_DEL -> { delete(); return handled(keyCode) }
-            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { enter(); return handled(keyCode) }
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { if (navigateGuide && isInputViewShown) panel?.findFocus()?.performClick() else enter(); return handled(keyCode) }
             KeyEvent.KEYCODE_SPACE -> { commit(" "); altArmed = false; renderState(); return handled(keyCode) }
         }
         // Leave arrows, HOME, BACK, volume, TAB and app shortcuts to Android/the editor.

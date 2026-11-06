@@ -9,6 +9,10 @@ class KeyboardLayoutTest {
         "ابتثجحخدذرزسشصضطظعغفقكلمنهويءؤئأإآىة".forEach { assertTrue("Missing $it", it.toString() in reachable) }
         assertEquals(26, KeyboardLayout.primary.size)
     }
+    @Test fun numericScreenCoversAllPhysicalKeys() {
+        assertEquals(KeyboardLayout.primary.keys, KeyboardLayout.numeric.keys)
+        assertEquals("1234567890", KeyboardLayout.rows[0].map { KeyboardLayout.numeric[it] }.joinToString(""))
+    }
     @Test fun physicalKeysMatchTheApprovedLayout() {
         assertEquals("د", KeyboardLayout.resolve('D', 'd', false, false, false))
         assertEquals("ك", KeyboardLayout.resolve('K', 'k', false, false, false))
