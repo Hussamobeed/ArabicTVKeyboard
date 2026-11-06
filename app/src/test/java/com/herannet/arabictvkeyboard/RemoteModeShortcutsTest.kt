@@ -71,6 +71,15 @@ class RemoteModeShortcutsTest {
     @Test fun literalDigitScansRemainNumericEvenWithShiftHeld() {
         assertEquals("1234567890", (2..11).map { NumberMode.resolve(null, UsbScanCodes.character(it, true), it) }.joinToString(""))
     }
+    @Test fun lockedAltDoesNotReuseAPrimaryManualMappingAsSecondary() {
+        val secondary = RemoteLayer.calibrated("ق", "ئ", null, true, false)
+        assertEquals("ئ", secondary)
+        val fallback = RemoteLayer.calibrated("ق", null, null, true, false)
+        assertNull(fallback)
+        assertEquals("ء", RemoteLayer.resolve('Q', 'q', true, false, false, true, false, true, false, fallback))
+        assertEquals("ق", RemoteLayer.calibrated("ق", "ئ", null, false, false))
+        assertEquals("ئ", RemoteLayer.calibrated("ئ", null, null, true, true))
+    }
     @Test fun networkAddressCanBeTypedWithTheRequestedKeys() {
         val keys = listOf('Q', 'O', 'W', '.', 'Q', 'Y', 'I', '.', 'Q', '.', 'Q', 'M', 'I', 'P', 'I', 'P')
         assertEquals("192.168.1.1:8080", keys.joinToString("") {

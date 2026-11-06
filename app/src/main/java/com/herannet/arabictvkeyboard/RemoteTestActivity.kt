@@ -58,8 +58,13 @@ class RemoteTestActivity : Activity() {
             showLayer(alt, shift)
             val character = RemoteKeys.character(event, shift, modifiers.caps(event.deviceId))
             val letter = RemoteKeys.letter(event)
-            val custom = prefs.mapped(RemoteKeys.identity(event, shift, alt), code, event.unicodeChar)
-            val resolved = RemoteLayer.resolve(letter, character, false, alt, shift, prefs.shiftIsAlt,
+            val physicalLayer = RemoteLayer.active(alt, shift, prefs.shiftIsAlt)
+            val custom = RemoteLayer.calibrated(
+                prefs.mapped(RemoteKeys.identity(event, shift, alt), code, event.unicodeChar),
+                prefs.mapped(RemoteKeys.identity(event, true, false), 0, 0),
+                prefs.mapped(RemoteKeys.identity(event, false, true), 0, 0), prefs.remoteAltLocked, physicalLayer)
+            val resolved = if (prefs.remoteNumbers) NumberMode.resolve(letter, character, event.scanCode)
+                else RemoteLayer.resolve(letter, character, prefs.remoteAltLocked, alt, shift, prefs.shiftIsAlt,
                 prefs.blueSymbols, true, false, custom)
             report.text = "${KeyEvent.keyCodeToString(code)}\nkeyCode=$code  scanCode=${event.scanCode}\nunicode=${event.unicodeChar}  ASCII=${character ?: '—'}  عربي=${resolved ?: "—"}\nALT=$alt  SHIFT=$shift  repeat=${event.repeatCount}\nUSB: ${event.device?.name ?: "—"}"
             val shortcut = RemoteModeShortcuts.binding(event.device?.name, code, event.scanCode)
@@ -80,7 +85,8 @@ class RemoteTestActivity : Activity() {
                 captured.add(pressed); return true
             }
             if (pending != null && code !in blocked && UsbScanCodes.canAssign(code, event.scanCode, event.unicodeChar)) {
-                prefs.map(RemoteKeys.identity(event, shift, alt), pending!!)
+                prefs.map(if (prefs.remoteAltLocked && !physicalLayer) RemoteKeys.identity(event, true, false)
+                    else RemoteKeys.identity(event, shift, alt), pending!!)
                 report.append("\nحُفظ التعيين إلى ${pending} باستخدام scanCode=${event.scanCode}")
                 pending = null; captured.add(pressed); return true
             }
@@ -88,7 +94,7 @@ class RemoteTestActivity : Activity() {
         return super.dispatchKeyEvent(event)
     }
     private fun showLayer(alt: Boolean, shift: Boolean) {
-        val active = RemoteLayer.active(alt, shift, prefs.shiftIsAlt)
+        val active = prefs.remoteAltLocked || RemoteLayer.active(alt, shift, prefs.shiftIsAlt)
         layerStatus.text = if (active) "ALT / الحروف الإضافية مفعّل${if (shift && !alt) " — يصل من الريموت باسم SHIFT" else ""}" else "ALT غير مفعّل"
         layerStatus.setTextColor(if (active) Ui.cyan else android.graphics.Color.WHITE)
     }

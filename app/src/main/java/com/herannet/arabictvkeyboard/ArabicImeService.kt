@@ -259,14 +259,19 @@ class ArabicImeService : InputMethodService() {
         if (unicode and KeyCharacterMap.COMBINING_ACCENT != 0) return super.onKeyDown(rawKeyCode, event)
         val character = RemoteKeys.character(event, shift, rawModifiers.caps(event.deviceId))
         val letter = RemoteKeys.letter(event)
-        val custom = prefs.mapped(RemoteKeys.identity(event, shift, physicalAlt), event.keyCode, unicode)
+        val requestedLayer = altArmed || prefs.remoteAltLocked
+        val custom = RemoteLayer.calibrated(
+            prefs.mapped(RemoteKeys.identity(event, shift, physicalAlt), event.keyCode, unicode),
+            prefs.mapped(RemoteKeys.identity(event, true, false), 0, 0),
+            prefs.mapped(RemoteKeys.identity(event, false, true), 0, 0),
+            requestedLayer, RemoteLayer.active(physicalAlt, shift, prefs.shiftIsAlt))
         val numericScan = when (event.keyCode) {
             KeyEvent.KEYCODE_PERIOD, KeyEvent.KEYCODE_NUMPAD_DOT -> 52
             KeyEvent.KEYCODE_SEMICOLON -> 39
             else -> event.scanCode
         }
         val text = if (numbers) NumberMode.resolve(letter, character, numericScan)
-            else RemoteLayer.resolve(letter, character, altArmed || prefs.remoteAltLocked, physicalAlt, shift,
+            else RemoteLayer.resolve(letter, character, requestedLayer, physicalAlt, shift,
             prefs.shiftIsAlt, prefs.blueSymbols, prefs.arabic, numericEditor || numbers, custom)
         if (text == null) return super.onKeyDown(rawKeyCode, event)
         commit(text); altArmed = false; renderState()

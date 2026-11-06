@@ -3,6 +3,8 @@ package com.herannet.arabictvkeyboard
 /** Shared by typing, calibration and the indicator. Raw modifier identity is never rewritten. */
 object RemoteLayer {
     fun active(alt: Boolean, shift: Boolean, shiftIsAlt: Boolean) = alt || (shift && shiftIsAlt)
+    fun calibrated(raw: String?, shifted: String?, alt: String?, requested: Boolean, physicalLayer: Boolean): String? =
+        if (requested && !physicalLayer) shifted ?: alt else raw
     fun resolve(letter: Char?, character: Char?, armed: Boolean, alt: Boolean, shift: Boolean,
                 shiftIsAlt: Boolean, legacyBlue: Boolean, arabic: Boolean, numbers: Boolean,
                 custom: String? = null): String? {
