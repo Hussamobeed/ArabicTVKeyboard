@@ -1,0 +1,69 @@
+name: Android APK
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"'
+      - name: Tests, lint and debug APK
+        run: bash ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore
+      - name: Restore permanent signing identity
+        if: github.event_name != 'pull_request'
+        env:
+          ANDROID_SIGNING_BUNDLE: ${{ secrets.ANDROID_SIGNING_BUNDLE }}
+        run: python3 scripts/restore_signing.py
+      - name: Build signed update-compatible APK
+        if: github.event_name != 'pull_request'
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: 0.1.${{ github.run_number }}
+        run: bash ./gradlew assembleRelease --stacktrace
+      - name: Verify certificate and publish APK checksums
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/ArabicTVKeyboard.apk
+          python3 scripts/verify_apk.py dist/ArabicTVKeyboard.apk
+          sha256sum dist/ArabicTVKeyboard.apk > dist/SHA256SUMS.txt
+          cp signing-certificate.sha256 dist/signing-certificate.sha256
+          printf 'Version code: %s\nCommit: %s\n' '${{ github.run_number }}' '${{ github.sha }}' > dist/BUILD.txt
+      - name: Downloadable signed APK
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArabicTVKeyboard-signed-${{ github.run_number }}
+          path: dist/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Remove signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/arabictv-signing"
