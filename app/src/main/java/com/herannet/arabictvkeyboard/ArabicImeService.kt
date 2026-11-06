@@ -54,7 +54,7 @@ class ArabicImeService : InputMethodService() {
             InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> true
             else -> false
         }
-        altArmed = false; numbers = numericEditor; consumed.clear(); rawModifiers.clear(); physicalAltVisible = false; sessionHidden = false; navigateGuide = false
+        altArmed = false; numbers = numericEditor || prefs.remoteNumbers; consumed.clear(); rawModifiers.clear(); physicalAltVisible = false; sessionHidden = false; navigateGuide = false
         if (panel != null && builtGuideSize != prefs.guideSizePercent) setInputView(onCreateInputView())
         renderState()
         // Vendor boxes often suppress the IME when a USB keyboard is connected.
@@ -83,7 +83,7 @@ class ArabicImeService : InputMethodService() {
             outInsets.touchableRegion.set(location[0], location[1], location[0] + guide.width, location[1] + guide.height)
         }
     }
-    private fun altVisible() = prefs.arabic && !numbers && (altArmed || physicalAltVisible)
+    private fun altVisible() = prefs.arabic && !numbers && (prefs.remoteAltLocked || altArmed || physicalAltVisible)
     override fun onCreateInputView(): View {
         window.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         builtGuideSize = prefs.guideSizePercent
@@ -99,7 +99,7 @@ class ArabicImeService : InputMethodService() {
         header.addView(title, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, headerHeight)))
         legend = Ui.text(this, "الأزرق مع ALT", (15f * scale).coerceAtLeast(11f)).apply { setTextColor(Ui.cyan); gravity = Gravity.CENTER; setPadding(4, 0, 4, 0) }
         header.addView(legend, FrameLayout.LayoutParams(Ui.dp(this, (165 * scale).toInt()), Ui.dp(this, headerHeight), Gravity.LEFT))
-        numbersKey = GuideKey(this, scale) { numbers = numericEditor || !numbers; altArmed = false; renderState() }
+        numbersKey = GuideKey(this, scale) { toggleNumbers() }
         header.addView(numbersKey, FrameLayout.LayoutParams(Ui.dp(this, (76 * scale).toInt().coerceAtLeast(48)), Ui.dp(this, headerHeight), Gravity.RIGHT))
         root.addView(header)
         fun addKey(row: LinearLayout, key: GuideKey, weight: Float = 1f, height: Int = rowHeight) {
@@ -117,18 +117,18 @@ class ArabicImeService : InputMethodService() {
             if (index == 1) addKey(row, GuideKey(this, scale) { delete() }.apply { action("⌫\nBACKSPACE", size = 13f) }, 1.35f)
             if (index == 2) {
                 addKey(row, GuideKey(this, scale) {
-                    commit(if (altVisible()) "،" else "."); altArmed = false; renderState()
+                    commit(if (numbers) "." else if (altVisible()) "،" else "."); altArmed = false; renderState()
                 }.apply {
                     action(".  ،", size = 25f)
                     contentDescription = "نقطة، مع ALT فاصلة عربية، ضغط مطول علامة استفهام"
-                    setOnLongClickListener { commit("؟"); true }
+                    setOnLongClickListener { commit(if (numbers) ":" else "؟"); true }
                 })
                 addKey(row, GuideKey(this, scale) { enter() }.apply { action("↵\nENTER", size = 17f) }, 1.6f)
             }
             root.addView(row)
         }
         val controls = LinearLayout(this)
-        altKey = GuideKey(this, scale) { altArmed = !altArmed; renderState() }
+        altKey = GuideKey(this, scale) { if (!prefs.remoteAltLocked) altArmed = !altArmed; renderState() }
         addKey(controls, altKey!!, 1.5f, rowHeight - 9)
         addKey(controls, GuideKey(this, scale) { commit(" ") }.apply { action("SPACE", size = 20f) }, 4f, rowHeight - 9)
         addKey(controls, GuideKey(this, scale) { toggleLanguage() }.apply { action("العربية / EN", size = 19f) }, 1.9f, rowHeight - 9)
@@ -144,14 +144,20 @@ class ArabicImeService : InputMethodService() {
     }
     private fun renderState() {
         val active = altVisible()
-        legend?.text = if (active) "● ALT مفعّل" else "الأزرق مع ALT"
+        legend?.text = when {
+            numbers && prefs.remoteAltLocked -> "123 · ALT مثبت"
+            active && prefs.remoteAltLocked -> "ALT مثبت"
+            active -> "● ALT مفعّل"
+            else -> "الأزرق مع ALT"
+        }
         legend?.setTextColor(if (active) Color.WHITE else Ui.cyan)
         legend?.background = if (active) Ui.background(Color.rgb(15, 107, 121), Ui.cyan) else null
-        altKey?.action(if (active) "ALT  ●" else "ALT", active, 22f)
+        altKey?.action(if (prefs.remoteAltLocked) "ALT ثابت" else if (active) "ALT  ●" else "ALT", active, 22f)
         numbersKey?.action(if (numbers) "ABC" else "123", numbers, 14f)
         status?.text = when {
-            numbers -> "123 — وضع الأرقام • F3 للعودة"
+            numbers -> "123 — Q…P: 1…0 • M: : • زر النقطة: . • زر 163 للعودة"
             !prefs.arabic -> "English • CAPS: العربية • OK: تنقّل • Esc: إخفاء"
+            active && prefs.remoteAltLocked -> "ALT مثبت — زر 165 للإلغاء • زر 163 للأرقام"
             active -> "الحروف السماوية مفعّلة • اختر الحرف أو اضغط ALT للإلغاء"
             else -> "CAPS: EN • ALT / F2: الحروف السماوية • F3: 123 • OK: تنقّل • Esc: إخفاء"
         }
@@ -173,6 +179,24 @@ class ArabicImeService : InputMethodService() {
         altArmed = false; renderState()
     }
     private fun toggleLanguage() { prefs.arabic = !prefs.arabic; altArmed = false; renderState() }
+    private fun toggleNumbers() {
+        prefs.remoteNumbers = !prefs.remoteNumbers
+        numbers = numericEditor || prefs.remoteNumbers
+        altArmed = false; renderState()
+    }
+    private fun remoteShortcut(event: KeyEvent): Boolean {
+        val action = RemoteModeShortcuts.binding(event.device?.name, event.keyCode, event.scanCode) ?: return false
+        if (event.repeatCount == 0) {
+            val state = RemoteModeShortcuts.State(prefs.remoteAltLocked, prefs.remoteNumbers)
+            val next = RemoteModeShortcuts.apply(state, action)
+            prefs.remoteAltLocked = next.altLocked
+            prefs.remoteNumbers = next.numbers
+            if (action == RemoteModeShortcuts.Action.LOCK_ALT && next.altLocked) prefs.arabic = true
+            numbers = numericEditor || next.numbers
+            altArmed = false; renderState()
+        }
+        return handled(event)
+    }
     private fun delete() {
         val ic = currentInputConnection ?: return
         if (!ic.getSelectedText(0).isNullOrEmpty()) ic.commitText("", 1) else ic.deleteSurroundingText(1, 0)
@@ -188,6 +212,7 @@ class ArabicImeService : InputMethodService() {
         val physicalAlt = event.isAltPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.ALT)
         physicalAltVisible = RemoteLayer.active(physicalAlt, shift, prefs.shiftIsAlt)
         if (event.isCtrlPressed || event.isMetaPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.CTRL) || rawModifiers.active(event.deviceId, UsbScanCodes.Action.META)) return super.onKeyDown(rawKeyCode, event)
+        if (remoteShortcut(event)) return true
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && isInputViewShown) {
             if (event.repeatCount == 0) {
                 if (navigateGuide) panel?.findFocus()?.performClick()
@@ -221,7 +246,7 @@ class ArabicImeService : InputMethodService() {
                 return handled(event)
             }
             KeyEvent.KEYCODE_F3 -> {
-                if (event.repeatCount == 0) { numbers = numericEditor || !numbers; altArmed = false; renderState() }
+                if (event.repeatCount == 0) { toggleNumbers() }
                 return handled(event)
             }
             KeyEvent.KEYCODE_ESCAPE -> { sessionHidden = true; navigateGuide = false; requestHideSelf(0); return handled(event) }
@@ -235,7 +260,13 @@ class ArabicImeService : InputMethodService() {
         val character = RemoteKeys.character(event, shift, rawModifiers.caps(event.deviceId))
         val letter = RemoteKeys.letter(event)
         val custom = prefs.mapped(RemoteKeys.identity(event, shift, physicalAlt), event.keyCode, unicode)
-        val text = RemoteLayer.resolve(letter, character, altArmed, physicalAlt, shift,
+        val numericScan = when (event.keyCode) {
+            KeyEvent.KEYCODE_PERIOD, KeyEvent.KEYCODE_NUMPAD_DOT -> 52
+            KeyEvent.KEYCODE_SEMICOLON -> 39
+            else -> event.scanCode
+        }
+        val text = if (numbers) NumberMode.resolve(letter, character, numericScan)
+            else RemoteLayer.resolve(letter, character, altArmed || prefs.remoteAltLocked, physicalAlt, shift,
             prefs.shiftIsAlt, prefs.blueSymbols, prefs.arabic, numericEditor || numbers, custom)
         if (text == null) return super.onKeyDown(rawKeyCode, event)
         commit(text); altArmed = false; renderState()

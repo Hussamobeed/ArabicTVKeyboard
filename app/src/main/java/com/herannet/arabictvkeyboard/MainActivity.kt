@@ -40,6 +40,7 @@ class MainActivity : Activity() {
                 setOnCheckedChangeListener { _, checked -> change(checked) }
             })
         }
+        content.addView(Ui.text(this, "اختصارات ريموت 2.4G جاهزة أثناء الكتابة:\n165 يثبّت ALT حتى تضغطه ثانية. 163 يبدّل الأرقام.\nفي الأرقام: Q…P تكتب 1…0، وM تكتب :، وزر النقطة يكتب .", 15f))
         check("إظهار دليل الحروف عند الكتابة", prefs.showGuide) { prefs.showGuide = it }
         check("دليل شفاف فوق التطبيق (ألغِه إذا غطى صندوق الكتابة)", prefs.overlayGuide) { prefs.overlayGuide = it }
         check("توافق الريموت: اعتبار SHIFT مثل ALT في العربية", prefs.shiftIsAlt) { prefs.shiftIsAlt = it }

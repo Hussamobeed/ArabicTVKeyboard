@@ -62,6 +62,11 @@ class RemoteTestActivity : Activity() {
             val resolved = RemoteLayer.resolve(letter, character, false, alt, shift, prefs.shiftIsAlt,
                 prefs.blueSymbols, true, false, custom)
             report.text = "${KeyEvent.keyCodeToString(code)}\nkeyCode=$code  scanCode=${event.scanCode}\nunicode=${event.unicodeChar}  ASCII=${character ?: '—'}  عربي=${resolved ?: "—"}\nALT=$alt  SHIFT=$shift  repeat=${event.repeatCount}\nUSB: ${event.device?.name ?: "—"}"
+            val shortcut = RemoteModeShortcuts.binding(event.device?.name, code, event.scanCode)
+            if (shortcut != null) {
+                report.append(if (shortcut == RemoteModeShortcuts.Action.LOCK_ALT) "\nزر ALT المثبت جاهز — يعمل داخل صندوق الكتابة" else "\nزر وضع الأرقام جاهز — يعمل داخل صندوق الكتابة")
+                captured.add(pressed); return true
+            }
             val blocked = setOf(KeyEvent.KEYCODE_HOME, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_VOLUME_UP,
                 KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE, KeyEvent.KEYCODE_POWER,
                 KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT,

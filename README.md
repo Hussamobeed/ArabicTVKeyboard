@@ -20,6 +20,21 @@ adb shell ime set com.herannet.arabictvkeyboard/.ArabicImeService
 
 The service maps letters only while a text editor has focus. Back, arrows, volume, Home, Tab and Ctrl/Meta shortcuts remain available. Some TV apps use a private search UI and do not accept third-party Android IMEs. OEM behavior must be verified on the actual box.
 
+## Ready remote shortcuts (0.1.7+)
+
+For the reported **2.4G Composite Devic Wireless Devic Mouse** only, and only inside an active text editor:
+
+| Reported key | Action |
+| --- | --- |
+| KEYCODE_UNKNOWN, scanCode 165 | Toggle a persistent ALT lock. Typing, spaces, editor changes, and other modifiers do not cancel it. Only this shortcut toggles the lock off. |
+| KEYCODE_UNKNOWN, scanCode 163 | Toggle numeric/symbol mode. It takes typing priority while enabled and retains any existing ALT lock for when numeric mode is turned off. |
+
+Auto-repeat does not toggle either state repeatedly. The states are stored locally across editor sessions. Known Android media events and identically numbered events from other devices are not overridden.
+
+In number mode **Q W E R T Y U I O P → 1 2 3 4 5 6 7 8 9 0** and **M → :**. Other letters match the remote's printed blue symbols. The period key always inserts **.**, including when firmware leaves SHIFT set. Real digit keys still insert digits. The semicolon/colon key inserts **:**. Number mode bypasses Arabic, sticky ALT, and custom Arabic mappings. Example supported input: `192.168.1.1:8080`.
+
+**ALT مثبت** marks a locked layer. In number mode with a retained lock the header says **123 · ALT مثبت**. The on-screen ALT key cannot clear the owner's 165 lock.
+
 ## Mini-remote ALT compatibility and compact guide (0.1.6+)
 
 - The default Arabic remote profile treats SHIFT as the ALT/blue-letter layer. Some USB air-mouse keyboards synthesize SHIFT rather than sending an ALT key. Disable **توافق الريموت: اعتبار SHIFT مثل ALT في العربية** for a conventional keyboard. English and number modes retain normal SHIFT behavior.

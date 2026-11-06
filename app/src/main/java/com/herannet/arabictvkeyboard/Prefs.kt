@@ -22,6 +22,14 @@ class Prefs(context: Context) {
     var guideSizePercent: Int
         get() = prefs.getInt("guideSize", 65).coerceIn(45, 100)
         set(value) { prefs.edit().putInt("guideSize", value.coerceIn(45, 100)).apply() }
+    // Separate persistent locks: ordinary typing, space, focus changes and other modifiers
+    // must never clear the owner's 165 lock. Only the same reserved remote key changes it.
+    var remoteAltLocked: Boolean
+        get() = prefs.getBoolean("remoteAltLocked", false)
+        set(value) { prefs.edit().putBoolean("remoteAltLocked", value).apply() }
+    var remoteNumbers: Boolean
+        get() = prefs.getBoolean("remoteNumbers", false)
+        set(value) { prefs.edit().putBoolean("remoteNumbers", value).apply() }
     var panelOpacity: Int
         get() = prefs.getInt("opacity", 80)
         set(value) { prefs.edit().putInt("opacity", value.coerceIn(35, 100)).apply() }
