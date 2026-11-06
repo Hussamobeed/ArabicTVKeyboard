@@ -57,7 +57,7 @@ The nearest sounds keep their English positions. Assignments for remaining lette
 - **ALT** or **F2** arms the secondary layer for the next key. The on-screen ALT button provides a fallback on remotes without an independent modifier event.
 - **F3 / 123** toggles number/symbol mode. Number, phone and date input fields always bypass Arabic translation.
 - **Esc / إخفاء** hides the guide for the current editor session; physical typing continues. The guide returns in the next input session.
-- The guide opacity and visibility can be changed in the setup screen. This is an IME window, not a floating overlay above arbitrary apps.
+- The guide opacity and visibility can be changed in the setup screen. The default translucent guide overlays the active editor without reserving screen space. Turn off the overlay option to use a docked IME area if it covers a text box on your device. This stays inside the IME window and never floats above unrelated apps.
 
 ### Blue symbols on Chinese mini remotes
 

@@ -38,6 +38,7 @@ class MainActivity : Activity() {
             })
         }
         check("إظهار دليل الحروف عند الكتابة", prefs.showGuide) { prefs.showGuide = it }
+        check("دليل شفاف فوق التطبيق (ألغِه إذا غطى صندوق الكتابة)", prefs.overlayGuide) { prefs.overlayGuide = it }
         check("تحويل الرموز الزرقاء حسب الريموت في الصورة", prefs.blueSymbols) { prefs.blueSymbols = it }
         content.addView(Ui.text(this, "وضع الرموز يحوّل 1 إلى ء و2 إلى ؤ… استخدم F3 أو زر 123 لكتابة الأرقام. لا تحتاجه إذا كان ALT يصل كزر مستقل.", 15f))
         content.addView(Ui.text(this, "عتامة خلفية الدليل / Guide opacity"))

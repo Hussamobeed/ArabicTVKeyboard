@@ -10,6 +10,9 @@ class Prefs(context: Context) {
     var showGuide: Boolean
         get() = prefs.getBoolean("guide", true)
         set(value) { prefs.edit().putBoolean("guide", value).apply() }
+    var overlayGuide: Boolean
+        get() = prefs.getBoolean("overlay", true)
+        set(value) { prefs.edit().putBoolean("overlay", value).apply() }
     var blueSymbols: Boolean
         get() = prefs.getBoolean("blue", false)
         set(value) { prefs.edit().putBoolean("blue", value).apply() }

@@ -1,11 +1,13 @@
 package com.herannet.arabictvkeyboard
 
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
 import android.view.Gravity
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -53,7 +55,22 @@ class ArabicImeService : InputMethodService() {
         super.onFinishInput()
     }
     override fun onDestroy() { handler.removeCallbacksAndMessages(null); super.onDestroy() }
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        val guide = panel ?: return
+        val decor = window.window?.decorView ?: return
+        if (prefs.overlayGuide && isInputViewShown) {
+            // Report no reserved editor area so the translucent guide sits over the app.
+            outInsets.contentTopInsets = decor.height
+            outInsets.visibleTopInsets = decor.height
+            outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+            val location = IntArray(2)
+            guide.getLocationInWindow(location)
+            outInsets.touchableRegion.set(location[0], location[1], location[0] + guide.width, location[1] + guide.height)
+        }
+    }
     override fun onCreateInputView(): View {
+        window.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         val root = Ui.column(this).apply {
             setPadding(12, 6, 12, 6)
             background = Ui.background(Color.argb(prefs.panelOpacity * 255 / 100, 17, 27, 43))
@@ -146,7 +163,7 @@ class ArabicImeService : InputMethodService() {
         }
         // Leave arrows, HOME, BACK, volume, TAB and app shortcuts to Android/the editor.
         val unicode = event.unicodeChar
-        if (unicode and KeyEvent.COMBINING_ACCENT != 0) return super.onKeyDown(keyCode, event)
+        if (unicode and KeyCharacterMap.COMBINING_ACCENT != 0) return super.onKeyDown(keyCode, event)
         val character = unicode.takeIf { it in 32..0xFFFF }?.toChar()
         val letter = if (keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z) ('A'.code + keyCode - KeyEvent.KEYCODE_A).toChar() else null
         if (!prefs.arabic || numericEditor || numbers) return super.onKeyDown(keyCode, event)

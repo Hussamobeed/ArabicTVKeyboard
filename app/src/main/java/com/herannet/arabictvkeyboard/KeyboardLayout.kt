@@ -10,7 +10,7 @@ object KeyboardLayout {
         'H' to "ه", 'J' to "ج", 'K' to "ك", 'L' to "ل", 'Z' to "ز",
         'X' to "خ", 'C' to "ص", 'V' to "ض", 'B' to "ب", 'N' to "ن", 'M' to "م"
     )
-    val numeric = rows.joinToString("").zip("1234567890@#$/&*()-+.,:!?_".map { it.toString() }).toMap()
+    val numeric = rows.joinToString("").toList().zip("1234567890@#$/&*()-+.,:!?_".map { it.toString() }).toMap()
     val secondary = linkedMapOf(
         'Q' to "ء", 'W' to "ؤ", 'E' to "إ", 'T' to "ط", 'Y' to "ى",
         'I' to "ئ", 'O' to "آ", 'A' to "أ", 'Z' to "ظ", 'B' to "ة",
