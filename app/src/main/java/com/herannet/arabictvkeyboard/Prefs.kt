@@ -19,12 +19,14 @@ class Prefs(context: Context) {
     var panelOpacity: Int
         get() = prefs.getInt("opacity", 80)
         set(value) { prefs.edit().putInt("opacity", value.coerceIn(35, 100)).apply() }
-    fun mapped(keyCode: Int, unicode: Int): String? = prefs.getString("map:${KeyboardLayout.signature(keyCode, unicode)}", null)
-    fun map(keyCode: Int, unicode: Int, text: String) { prefs.edit().putString("map:${KeyboardLayout.signature(keyCode, unicode)}", text).apply() }
+    fun mapped(identity: String, keyCode: Int, unicode: Int): String? =
+        prefs.getString("map2:$identity", null)
+            ?: if (keyCode != 0 && unicode >= 32) prefs.getString("map:${KeyboardLayout.signature(keyCode, unicode)}", null) else null
+    fun map(identity: String, text: String) { prefs.edit().putString("map2:$identity", text).apply() }
     fun clearMappings() {
         val editor = prefs.edit()
-        prefs.all.keys.filter { it.startsWith("map:") }.forEach { editor.remove(it) }
+        prefs.all.keys.filter { (it.startsWith("map:") || it.startsWith("map2:")) }.forEach { editor.remove(it) }
         editor.apply()
     }
-    fun mappingCount(): Int = prefs.all.keys.count { it.startsWith("map:") }
+    fun mappingCount(): Int = prefs.all.keys.count { (it.startsWith("map:") || it.startsWith("map2:")) }
 }

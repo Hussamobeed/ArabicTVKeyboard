@@ -67,6 +67,17 @@ Use **اختبار الريموت** first. If Android receives ALT as a modifier
 
 For a different remote, select **تعيين زر إلى حرف عربي**, choose the output letter, then press the remote key/combination. These overrides stay locally on the device. They do not affect English or number mode. Reset them from the same screen. Key diagnostics are displayed only on this explicit test screen and are not logged or uploaded.
 
+### USB air mouse with KEYCODE_UNKNOWN (0.1.4+)
+
+Some TV-box key-layout files send `keyCode=0`, `unicode=0`, but retain a Linux evdev `scanCode`. The original app did not handle this and manual assignment also rejected such events.
+
+- For unknown Android key codes only, recover the standard USB QWERTY scan codes (for example `31 → S → س`, `32 → D → د`, `37 → K → ك`). The fallback follows [AOSP Generic.kl](https://android.googlesource.com/platform/frameworks/base/+/master/data/keyboards/Generic.kl). It does not change system key-layout files or require root.
+- Recover digits and printable ASCII for English/123/numeric fields instead of passing empty events back to the editor.
+- Calibration now accepts nonzero scan codes even when Unicode is zero. Saved overrides use USB device descriptor, scan code and modifiers, so different unknown keys no longer share one `0:0` identity. Existing valid assignments remain available.
+- Press/release tracking also uses device and scan code. Raw Shift/Alt/Ctrl/Meta state is tracked separately for each input device. System navigation and media scan codes are not converted to letters.
+- In the remote test screen, `ASCII` and `عربي` show the recovered outputs. After assigning a key, the screen must display **حُفظ التعيين**. The setup screen shows whether this IME is actually selected. Test typing in the app's own text box first.
+- OEM scan-code differences may require manual assignment. This fallback is scoped to active Android editors and cannot fix apps that do not route hardware events to their selected IME.
+
 ## Stable signing / توقيع التحديثات
 
 - Permanent application ID: `com.herannet.arabictvkeyboard`.

@@ -25,7 +25,8 @@ class ArabicImeService : InputMethodService() {
     private var hasEditor = false
     private var sessionHidden = false
     private var navigateGuide = false
-    private val consumed = mutableSetOf<Int>()
+    private val consumed = mutableSetOf<String>()
+    private val rawModifiers = RawModifiers()
     private val labels = mutableMapOf<Char, TextView>()
     private val handler = Handler(Looper.getMainLooper())
 
@@ -46,7 +47,7 @@ class ArabicImeService : InputMethodService() {
             InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> true
             else -> false
         }
-        altArmed = false; numbers = numericEditor; consumed.clear(); sessionHidden = false; navigateGuide = false
+        altArmed = false; numbers = numericEditor; consumed.clear(); rawModifiers.clear(); sessionHidden = false; navigateGuide = false
         renderState()
         // Vendor boxes often suppress the IME when a USB keyboard is connected.
         // Keep this view in the IME window, with no global overlay/accessibility permissions.
@@ -56,7 +57,7 @@ class ArabicImeService : InputMethodService() {
     }
     override fun onFinishInput() {
         handler.removeCallbacksAndMessages(null)
-        hasEditor = false; altArmed = false; consumed.clear()
+        hasEditor = false; altArmed = false; consumed.clear(); rawModifiers.clear()
         super.onFinishInput()
     }
     override fun onDestroy() { handler.removeCallbacksAndMessages(null); super.onDestroy() }
@@ -143,17 +144,19 @@ class ArabicImeService : InputMethodService() {
         if (!ic.getSelectedText(0).isNullOrEmpty()) ic.commitText("", 1) else ic.deleteSurroundingText(1, 0)
     }
     private fun enter() { sendDefaultEditorAction(true).also { if (!it) sendKeyChar('\n') } }
-    private fun handled(keyCode: Int): Boolean { consumed.add(keyCode); return true }
+    private fun handled(event: KeyEvent): Boolean { consumed.add(RemoteKeys.pressedIdentity(event)); return true }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (!hasEditor || currentInputConnection == null) return super.onKeyDown(keyCode, event)
-        if (event.isCtrlPressed || event.isMetaPressed) return super.onKeyDown(keyCode, event)
+    override fun onKeyDown(rawKeyCode: Int, event: KeyEvent): Boolean {
+        val keyCode = RemoteKeys.actionKeyCode(event)
+        if (!hasEditor || currentInputConnection == null) return super.onKeyDown(rawKeyCode, event)
+        rawModifiers.update(event.deviceId, event.scanCode, true, event.repeatCount)
+        if (event.isCtrlPressed || event.isMetaPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.CTRL) || rawModifiers.active(event.deviceId, UsbScanCodes.Action.META)) return super.onKeyDown(rawKeyCode, event)
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && isInputViewShown) {
             if (event.repeatCount == 0) {
                 if (navigateGuide) panel?.findFocus()?.performClick()
                 else { navigateGuide = true; labels['Q']?.requestFocus() }
             }
-            return handled(keyCode)
+            return handled(event)
         }
         if (navigateGuide && isInputViewShown) {
             val direction = when (keyCode) {
@@ -165,41 +168,49 @@ class ArabicImeService : InputMethodService() {
             }
             if (direction != null) {
                 panel?.findFocus()?.focusSearch(direction)?.requestFocus()
-                return handled(keyCode)
+                return handled(event)
             }
         }
         when (keyCode) {
             KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT, KeyEvent.KEYCODE_F2 -> {
                 if (event.repeatCount == 0) { altArmed = !altArmed; renderState() }
-                return handled(keyCode)
+                return handled(event)
             }
             KeyEvent.KEYCODE_CAPS_LOCK, KeyEvent.KEYCODE_LANGUAGE_SWITCH -> {
                 if (event.repeatCount == 0) toggleLanguage()
-                return handled(keyCode)
+                return handled(event)
             }
             KeyEvent.KEYCODE_F3 -> {
                 if (event.repeatCount == 0) { numbers = numericEditor || !numbers; altArmed = false; renderState() }
-                return handled(keyCode)
+                return handled(event)
             }
-            KeyEvent.KEYCODE_ESCAPE -> { sessionHidden = true; navigateGuide = false; requestHideSelf(0); return handled(keyCode) }
-            KeyEvent.KEYCODE_DEL -> { delete(); return handled(keyCode) }
-            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { if (navigateGuide && isInputViewShown) panel?.findFocus()?.performClick() else enter(); return handled(keyCode) }
-            KeyEvent.KEYCODE_SPACE -> { commit(" "); altArmed = false; renderState(); return handled(keyCode) }
+            KeyEvent.KEYCODE_ESCAPE -> { sessionHidden = true; navigateGuide = false; requestHideSelf(0); return handled(event) }
+            KeyEvent.KEYCODE_DEL -> { delete(); return handled(event) }
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { if (navigateGuide && isInputViewShown) panel?.findFocus()?.performClick() else enter(); return handled(event) }
+            KeyEvent.KEYCODE_SPACE -> { commit(" "); altArmed = false; renderState(); return handled(event) }
         }
         // Leave arrows, HOME, BACK, volume, TAB and app shortcuts to Android/the editor.
         val unicode = event.unicodeChar
-        if (unicode and KeyCharacterMap.COMBINING_ACCENT != 0) return super.onKeyDown(keyCode, event)
-        val character = unicode.takeIf { it in 32..0xFFFF }?.toChar()
-        val letter = if (keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z) ('A'.code + keyCode - KeyEvent.KEYCODE_A).toChar() else null
-        if (!prefs.arabic || numericEditor || numbers) return super.onKeyDown(keyCode, event)
-        val custom = prefs.mapped(keyCode, unicode)
-        val text = custom ?: KeyboardLayout.resolve(letter, character, altArmed || event.isAltPressed, prefs.blueSymbols, false)
-        if (text == null) return super.onKeyDown(keyCode, event)
+        if (unicode and KeyCharacterMap.COMBINING_ACCENT != 0) return super.onKeyDown(rawKeyCode, event)
+        val shift = event.isShiftPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.SHIFT)
+        val physicalAlt = event.isAltPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.ALT)
+        val character = RemoteKeys.character(event, shift, rawModifiers.caps(event.deviceId))
+        val letter = RemoteKeys.letter(event)
+        // A passthrough cannot type anything when the firmware sent unicode=0. Commit the recovered
+        // ASCII character explicitly in English, number and numeric-editor modes as well.
+        if (!prefs.arabic || numericEditor || numbers) {
+            if (character == null) return super.onKeyDown(rawKeyCode, event)
+            commit(character.toString()); altArmed = false; renderState(); return handled(event)
+        }
+        val custom = prefs.mapped(RemoteKeys.identity(event, shift, physicalAlt), event.keyCode, unicode)
+        val text = custom ?: KeyboardLayout.resolve(letter, character, altArmed || physicalAlt, prefs.blueSymbols, false)
+        if (text == null) return super.onKeyDown(rawKeyCode, event)
         commit(text); altArmed = false; renderState()
-        return handled(keyCode)
+        return handled(event)
     }
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (consumed.remove(keyCode)) return true
+        rawModifiers.update(event.deviceId, event.scanCode, false)
+        if (consumed.remove(RemoteKeys.pressedIdentity(event))) return true
         return super.onKeyUp(keyCode, event)
     }
 }

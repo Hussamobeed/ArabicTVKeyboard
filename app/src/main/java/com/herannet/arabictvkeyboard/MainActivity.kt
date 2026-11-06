@@ -14,6 +14,7 @@ import android.widget.SeekBar
 import android.widget.Toast
 
 class MainActivity : Activity() {
+    private var keyboardStatus: android.widget.TextView? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val prefs = Prefs(this)
@@ -22,6 +23,8 @@ class MainActivity : Activity() {
         setContentView(scroll)
         content.addView(Ui.text(this, "Arabic TV Keyboard", 28f))
         content.addView(Ui.text(this, "لوحة عربية للريموت الإنجليزي • Android TV Box", 20f))
+        keyboardStatus = Ui.text(this, "", 17f)
+        content.addView(keyboardStatus)
         content.addView(Ui.text(this, "١. فعّل اللوحة، ثم اخترها.\n٢. اكتب بأزرار الريموت. CAPS يبدّل اللغة، F2 للحروف الإضافية، F3 للأرقام.\n٣. إذا كان ALT يرسل الرموز الزرقاء، جرّب وضع الرموز أو عيّن الأزرار يدويًا.", 17f))
         content.addView(Ui.button(this, "١ — تفعيل لوحة الإدخال / Enable keyboard") {
             try { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
@@ -60,5 +63,10 @@ class MainActivity : Activity() {
             val selected = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).orEmpty().contains(packageName)
             Toast.makeText(this, if (selected) "اللوحة محددة الآن" else "اختر Arabic TV Keyboard من قائمة لوحات الإدخال", Toast.LENGTH_LONG).show()
         })
+    }
+    override fun onResume() {
+        super.onResume()
+        val selected = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).orEmpty().contains(packageName)
+        keyboardStatus?.text = if (selected) "لوحة Arabic TV Keyboard محددة الآن" else "اللوحة غير محددة — اضغط اختيار اللوحة وحدد Arabic TV Keyboard"
     }
 }
