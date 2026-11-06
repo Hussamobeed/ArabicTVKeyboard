@@ -42,8 +42,21 @@ class MainActivity : Activity() {
         }
         check("إظهار دليل الحروف عند الكتابة", prefs.showGuide) { prefs.showGuide = it }
         check("دليل شفاف فوق التطبيق (ألغِه إذا غطى صندوق الكتابة)", prefs.overlayGuide) { prefs.overlayGuide = it }
+        check("توافق الريموت: اعتبار SHIFT مثل ALT في العربية", prefs.shiftIsAlt) { prefs.shiftIsAlt = it }
         check("تحويل الرموز الزرقاء حسب الريموت في الصورة", prefs.blueSymbols) { prefs.blueSymbols = it }
         content.addView(Ui.text(this, "وضع الرموز يحوّل 1 إلى ء و2 إلى ؤ… استخدم F3 أو زر 123 لكتابة الأرقام. لا تحتاجه إذا كان ALT يصل كزر مستقل.", 15f))
+        val guideSizeLabel = Ui.text(this, "حجم دليل الحروف: ${prefs.guideSizePercent}%")
+        content.addView(guideSizeLabel)
+        content.addView(SeekBar(this).apply {
+            max = 55; progress = prefs.guideSizePercent - 45
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, value: Int, user: Boolean) {
+                    if (user) { prefs.guideSizePercent = value + 45; guideSizeLabel.text = "حجم دليل الحروف: ${prefs.guideSizePercent}%" }
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            })
+        })
         content.addView(Ui.text(this, "عتامة خلفية الدليل / Guide opacity"))
         content.addView(SeekBar(this).apply {
             max = 65; progress = prefs.panelOpacity - 35

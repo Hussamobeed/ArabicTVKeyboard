@@ -20,6 +20,15 @@ adb shell ime set com.herannet.arabictvkeyboard/.ArabicImeService
 
 The service maps letters only while a text editor has focus. Back, arrows, volume, Home, Tab and Ctrl/Meta shortcuts remain available. Some TV apps use a private search UI and do not accept third-party Android IMEs. OEM behavior must be verified on the actual box.
 
+## Mini-remote ALT compatibility and compact guide (0.1.6+)
+
+- The default Arabic remote profile treats SHIFT as the ALT/blue-letter layer. Some USB air-mouse keyboards synthesize SHIFT rather than sending an ALT key. Disable **توافق الريموت: اعتبار SHIFT مثل ALT في العربية** for a conventional keyboard. English and number modes retain normal SHIFT behavior.
+- A shared resolver drives typing and calibration output. It decodes synthesized blue punctuation (for example SHIFT+3/# from the physical D blue legend) before translating the synthetic key. Unmapped secondary keys fall back to the primary Arabic letter instead of leaking English punctuation.
+- Existing manual mappings retain priority and their original device/scanCode/raw SHIFT/raw ALT identity. The app does not rewrite or delete saved calibrations.
+- The indicator updates on modifier press and release. The remote test screen now explicitly displays the logical ALT layer even when Android calls the input SHIFT. Pressing a modifier while assigning a character keeps the selected target pending until the actual letter is pressed.
+- The guide defaults to 65% size, is centered and narrower, and includes a **حجم دليل الحروف** size slider (45–100%). Changes apply when the next text editor opens.
+- Added regression coverage for SHIFT-as-ALT, synthetic blue symbols, preserved manual mappings, released modifier state and unaffected English/numeric typing.
+
 ## Helper-panel design (0.1.5+)
 
 The guide uses translucent rounded keys with separate legends: Latin at the top-left, the Arabic letter centered, and the ALT letter in cyan at the top-right. The bottom row follows the reference design: ALT, SPACE, language switch, hide. Number mode remains accessible through the 123 button in the header and F3.

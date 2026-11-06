@@ -16,6 +16,12 @@ class Prefs(context: Context) {
     var blueSymbols: Boolean
         get() = prefs.getBoolean("blue", false)
         set(value) { prefs.edit().putBoolean("blue", value).apply() }
+    var shiftIsAlt: Boolean
+        get() = prefs.getBoolean("shiftIsAlt", true)
+        set(value) { prefs.edit().putBoolean("shiftIsAlt", value).apply() }
+    var guideSizePercent: Int
+        get() = prefs.getInt("guideSize", 65).coerceIn(45, 100)
+        set(value) { prefs.edit().putInt("guideSize", value.coerceIn(45, 100)).apply() }
     var panelOpacity: Int
         get() = prefs.getInt("opacity", 80)
         set(value) { prefs.edit().putInt("opacity", value.coerceIn(35, 100)).apply() }

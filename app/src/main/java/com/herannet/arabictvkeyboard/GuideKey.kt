@@ -11,15 +11,15 @@ import android.widget.FrameLayout
 import android.widget.TextView
 
 /** Focusable TV key with independent corner legends and a large centered glyph. */
-class GuideKey(context: Context, action: () -> Unit) : FrameLayout(context) {
-    private val latin = label(13f, Color.WHITE, Gravity.TOP or Gravity.LEFT)
+class GuideKey(context: Context, private val scale: Float = 1f, action: () -> Unit) : FrameLayout(context) {
+    private val latin = label((13f * scale).coerceAtLeast(10f), Color.WHITE, Gravity.TOP or Gravity.LEFT)
     private val main = label(30f, Color.WHITE, Gravity.CENTER)
-    private val alternate = label(17f, Ui.cyan, Gravity.TOP or Gravity.RIGHT)
+    private val alternate = label((17f * scale).coerceAtLeast(12f), Ui.cyan, Gravity.TOP or Gravity.RIGHT)
 
     init {
         layoutDirection = View.LAYOUT_DIRECTION_LTR
         isFocusable = true; isClickable = true
-        setPadding(Ui.dp(context, 8), Ui.dp(context, 4), Ui.dp(context, 8), Ui.dp(context, 3))
+        setPadding(Ui.dp(context, (8 * scale).toInt()), Ui.dp(context, 2), Ui.dp(context, (8 * scale).toInt()), Ui.dp(context, 2))
         addView(main, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(latin, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.LEFT))
         addView(alternate, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.RIGHT))
@@ -59,7 +59,7 @@ class GuideKey(context: Context, action: () -> Unit) : FrameLayout(context) {
     }
     fun action(title: String, active: Boolean = false, size: Float = 18f) {
         latin.text = ""; alternate.text = ""
-        main.text = title; main.textSize = size
+        main.text = title; main.textSize = (size * scale).coerceAtLeast(10f)
         main.setTextColor(if (active) Ui.cyan else Color.WHITE)
         contentDescription = title
         paintBackground(active)
