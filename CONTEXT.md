@@ -130,3 +130,10 @@ The next code slice adds three requested features. `ReleaseUpdateChecker.kt` che
 - Added separate-mode fallback key translation inside an active input connection; normal writing remains unchanged when Gamepad mode is off.
 - Added `INTERNET` and `PACKAGE_USAGE_STATS` manifest declarations. The latter is a special access that the user must grant in Android Settings.
 - `git diff --check` passes. Full Android compilation still requires the Android SDK and should be verified by the repository's GitHub Actions workflow.
+
+### 2026-11-19 — GitHub Actions build-failure fix
+
+- GitHub Actions run `44495736664` for commit `5c699d5` failed in the `Tests, lint and debug APK` step.
+- Local reproduction with Android SDK 35 and JDK 17 found the initial Kotlin errors: unavailable `BuildConfig` references and assigning a `String` directly to `EditText.text`.
+- After fixing those, lint reported `PACKAGE_USAGE_STATS` as a protected permission. The permission is intentionally needed for the documented Usage Access settings flow, so the manifest now has a narrowly scoped `tools:ignore="ProtectedPermissions"` on that permission.
+- Final local validation passed: `./gradlew testDebugUnitTest lintDebug assembleDebug` with Android SDK 35 and JDK 17. Lint still reports existing/non-fatal warnings, but no errors.

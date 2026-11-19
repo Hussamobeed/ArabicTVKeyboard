@@ -12,6 +12,9 @@ import java.util.concurrent.Executors
 
 class ReleaseUpdateChecker(private val context: Context) {
     data class Release(val tag: String, val pageUrl: String, val apkUrl: String?)
+    private val installedVersion = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
+    }.getOrDefault("0.0.0")
 
     private val executor = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
@@ -24,7 +27,7 @@ class ReleaseUpdateChecker(private val context: Context) {
                     connectTimeout = 8_000
                     readTimeout = 8_000
                     setRequestProperty("Accept", "application/vnd.github+json")
-                    setRequestProperty("User-Agent", "ArabicTVKeyboard/${BuildConfig.VERSION_NAME}")
+                    setRequestProperty("User-Agent", "ArabicTVKeyboard/$installedVersion")
                 }
                 connection.inputStream.bufferedReader().use { reader ->
                     if (connection.responseCode !in 200..299) error("GitHub HTTP ${connection.responseCode}")

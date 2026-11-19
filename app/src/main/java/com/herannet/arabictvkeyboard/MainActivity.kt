@@ -30,10 +30,11 @@ class MainActivity : Activity() {
             Toast.makeText(this, "جارٍ فحص GitHub…", Toast.LENGTH_SHORT).show()
             ReleaseUpdateChecker(this).check { result ->
                 result.onSuccess { release ->
-                    val newer = isNewer(versionParts(release.tag), versionParts(BuildConfig.VERSION_NAME))
+                    val installedVersion = installedVersion()
+                    val newer = isNewer(versionParts(release.tag), versionParts(installedVersion))
                     AlertDialog.Builder(this)
                         .setTitle(if (newer) "يتوفر تحديث ${release.tag}" else "لا يوجد تحديث أحدث")
-                        .setMessage("الإصدار المثبت: ${BuildConfig.VERSION_NAME}\nآخر إصدار منشور: ${release.tag}\n\nيفتح زر التنزيل صفحة GitHub. قد يطلب Android السماح بالتثبيت من هذا المصدر.")
+                        .setMessage("الإصدار المثبت: $installedVersion\nآخر إصدار منشور: ${release.tag}\n\nيفتح زر التنزيل صفحة GitHub. قد يطلب Android السماح بالتثبيت من هذا المصدر.")
                         .setPositiveButton(if (newer) "تنزيل التحديث" else "فتح GitHub") { _, _ -> ReleaseUpdateChecker(this).openRelease(release) }
                         .setNegativeButton("إلغاء", null).show()
                 }.onFailure { error ->
@@ -61,7 +62,7 @@ class MainActivity : Activity() {
         content.addView(Ui.text(this, "اكتب أسماء حزم الألعاب مفصولة بفواصل، مثل: com.example.emulator, org.example.game. يحتاج الكشف التلقائي إلى Usage Access من إعدادات Android.", 15f))
         val gamePackages = EditText(this).apply {
             hint = "com.example.emulator, org.example.game"
-            text = prefs.gamePackages
+            setText(prefs.gamePackages)
             textSize = 16f
             setSingleLine(false)
             setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) prefs.gamePackages = text.toString() }
@@ -124,6 +125,9 @@ class MainActivity : Activity() {
 
     private fun versionParts(value: String): List<Int> =
         value.removePrefix("v").split('.').map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+
+    private fun installedVersion(): String =
+        runCatching { packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0" }.getOrDefault("0.0.0")
 
     private fun isNewer(candidate: List<Int>, installed: List<Int>): Boolean {
         val size = maxOf(candidate.size, installed.size)
