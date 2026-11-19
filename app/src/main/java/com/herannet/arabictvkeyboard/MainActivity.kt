@@ -1,6 +1,7 @@
 package com.herannet.arabictvkeyboard
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
@@ -25,6 +26,21 @@ class MainActivity : Activity() {
         content.addView(Ui.text(this, "لوحة عربية للريموت الإنجليزي • Android TV Box", 20f))
         keyboardStatus = Ui.text(this, "", 17f)
         content.addView(keyboardStatus)
+        content.addView(Ui.button(this, "فحص تحديث من GitHub Releases / Check for update") {
+            Toast.makeText(this, "جارٍ فحص GitHub…", Toast.LENGTH_SHORT).show()
+            ReleaseUpdateChecker(this).check { result ->
+                result.onSuccess { release ->
+                    val newer = isNewer(versionParts(release.tag), versionParts(BuildConfig.VERSION_NAME))
+                    AlertDialog.Builder(this)
+                        .setTitle(if (newer) "يتوفر تحديث ${release.tag}" else "لا يوجد تحديث أحدث")
+                        .setMessage("الإصدار المثبت: ${BuildConfig.VERSION_NAME}\nآخر إصدار منشور: ${release.tag}\n\nيفتح زر التنزيل صفحة GitHub. قد يطلب Android السماح بالتثبيت من هذا المصدر.")
+                        .setPositiveButton(if (newer) "تنزيل التحديث" else "فتح GitHub") { _, _ -> ReleaseUpdateChecker(this).openRelease(release) }
+                        .setNegativeButton("إلغاء", null).show()
+                }.onFailure { error ->
+                    Toast.makeText(this, "تعذر فحص التحديث: ${error.message ?: "تحقق من الإنترنت"}", Toast.LENGTH_LONG).show()
+                }
+            }
+        })
         content.addView(Ui.text(this, "١. فعّل اللوحة، ثم اخترها.\n٢. اكتب بأزرار الريموت. CAPS يبدّل اللغة، F2 للحروف الإضافية، F3 للأرقام.\n٣. إذا كان ALT يرسل الرموز الزرقاء، جرّب وضع الرموز أو عيّن الأزرار يدويًا.", 17f))
         content.addView(Ui.button(this, "١ — تفعيل لوحة الإدخال / Enable keyboard") {
             try { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
@@ -36,6 +52,26 @@ class MainActivity : Activity() {
         content.addView(Ui.button(this, "اختبار الريموت وتعيين الأزرار") { startActivity(Intent(this, RemoteTestActivity::class.java)) })
         content.addView(Ui.text(this, "Gamepad تجريبي: عيّن D-pad وA/B/X/Y وStart/Select من شاشة اختبار الريموت. هذا الإصدار يحفظ الملف ويعرض الأحداث فقط؛ لا يستطيع IME عادي إنشاء جهاز gamepad نظامي حقيقي دون صلاحيات خاصة.", 15f))
         content.addView(Ui.button(this, "فتح إعداد Gamepad التجريبي") { startActivity(Intent(this, RemoteTestActivity::class.java)) })
+        content.addView(CheckBox(this).apply {
+            text = "تفعيل Gamepad تلقائيًا عند فتح لعبة محددة"
+            textSize = 17f
+            isChecked = prefs.gamepadAuto
+            setOnCheckedChangeListener { _, checked -> prefs.gamepadAuto = checked }
+        })
+        content.addView(Ui.text(this, "اكتب أسماء حزم الألعاب مفصولة بفواصل، مثل: com.example.emulator, org.example.game. يحتاج الكشف التلقائي إلى Usage Access من إعدادات Android.", 15f))
+        val gamePackages = EditText(this).apply {
+            hint = "com.example.emulator, org.example.game"
+            text = prefs.gamePackages
+            textSize = 16f
+            setSingleLine(false)
+            setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) prefs.gamePackages = text.toString() }
+        }
+        content.addView(gamePackages, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 70)))
+        content.addView(Ui.button(this, "حفظ أسماء الألعاب وفتح Usage Access") {
+            prefs.gamePackages = gamePackages.text.toString()
+            try { startActivity(GamepadAutoDetector.usageSettingsIntent(this)) }
+            catch (_: ActivityNotFoundException) { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+        })
         fun check(title: String, value: Boolean, change: (Boolean) -> Unit) {
             content.addView(CheckBox(this).apply {
                 text = title; textSize = 17f; isChecked = value
@@ -84,5 +120,18 @@ class MainActivity : Activity() {
         super.onResume()
         val selected = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).orEmpty().contains(packageName)
         keyboardStatus?.text = if (selected) "لوحة Arabic TV Keyboard محددة الآن" else "اللوحة غير محددة — اضغط اختيار اللوحة وحدد Arabic TV Keyboard"
+    }
+
+    private fun versionParts(value: String): List<Int> =
+        value.removePrefix("v").split('.').map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+
+    private fun isNewer(candidate: List<Int>, installed: List<Int>): Boolean {
+        val size = maxOf(candidate.size, installed.size)
+        for (index in 0 until size) {
+            val left = candidate.getOrElse(index) { 0 }
+            val right = installed.getOrElse(index) { 0 }
+            if (left != right) return left > right
+        }
+        return false
     }
 }

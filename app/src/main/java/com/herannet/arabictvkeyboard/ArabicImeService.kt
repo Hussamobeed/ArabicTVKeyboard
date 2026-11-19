@@ -5,6 +5,7 @@ import android.graphics.drawable.ColorDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.text.InputType
 import android.view.Gravity
 import android.view.KeyCharacterMap
@@ -33,6 +34,7 @@ class ArabicImeService : InputMethodService() {
     private var sessionHidden = false
     private var navigateGuide = false
     private val consumed = mutableSetOf<String>()
+    private val gamepadOutputs = mutableMapOf<String, Int>()
     private val rawModifiers = RawModifiers()
     private val labels = mutableMapOf<Char, GuideKey>()
     private val handler = Handler(Looper.getMainLooper())
@@ -54,7 +56,7 @@ class ArabicImeService : InputMethodService() {
             InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> true
             else -> false
         }
-        altArmed = false; numbers = numericEditor || prefs.remoteNumbers; consumed.clear(); rawModifiers.clear(); physicalAltVisible = false; sessionHidden = false; navigateGuide = false
+        altArmed = false; numbers = numericEditor || prefs.remoteNumbers; consumed.clear(); gamepadOutputs.clear(); rawModifiers.clear(); physicalAltVisible = false; sessionHidden = false; navigateGuide = false
         if (panel != null && builtGuideSize != prefs.guideSizePercent) setInputView(onCreateInputView())
         renderState()
         // Vendor boxes often suppress the IME when a USB keyboard is connected.
@@ -65,7 +67,7 @@ class ArabicImeService : InputMethodService() {
     }
     override fun onFinishInput() {
         handler.removeCallbacksAndMessages(null)
-        hasEditor = false; altArmed = false; consumed.clear(); rawModifiers.clear(); physicalAltVisible = false
+        hasEditor = false; altArmed = false; consumed.clear(); gamepadOutputs.clear(); rawModifiers.clear(); physicalAltVisible = false
         super.onFinishInput()
     }
     override fun onDestroy() { handler.removeCallbacksAndMessages(null); super.onDestroy() }
@@ -204,6 +206,30 @@ class ArabicImeService : InputMethodService() {
     private fun enter() { sendDefaultEditorAction(true).also { if (!it) sendKeyChar('\n') } }
     private fun handled(event: KeyEvent): Boolean { consumed.add(RemoteKeys.pressedIdentity(event)); return true }
 
+    private fun gamepadIsActive(): Boolean = prefs.gamepadMode ||
+        (prefs.gamepadAuto && GamepadAutoDetector.isConfiguredGameForeground(this, GamepadAutoDetector.configuredPackages(prefs.gamePackages)))
+
+    private fun gamepadKeyDown(event: KeyEvent): Boolean {
+        if (!gamepadIsActive() || event.keyCode in GamepadSafety.blockedKeyCodes) return false
+        val button = GamepadBindings.find(event, prefs.gamepadBindings) ?: return false
+        val output = button.fallbackKeyCode
+        if (event.repeatCount == 0) {
+            currentInputConnection?.sendKeyEvent(KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+                KeyEvent.ACTION_DOWN, output, 0, event.metaState))
+        }
+        gamepadOutputs[RemoteKeys.pressedIdentity(event)] = output
+        return true
+    }
+
+    private fun gamepadKeyUp(event: KeyEvent): Boolean {
+        val identity = RemoteKeys.pressedIdentity(event)
+        val output = gamepadOutputs.remove(identity) ?: return false
+        currentInputConnection?.sendKeyEvent(KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+            KeyEvent.ACTION_UP, output, 0, event.metaState))
+        consumed.remove(identity)
+        return true
+    }
+
     override fun onKeyDown(rawKeyCode: Int, event: KeyEvent): Boolean {
         val keyCode = RemoteKeys.actionKeyCode(event)
         if (!hasEditor || currentInputConnection == null) return super.onKeyDown(rawKeyCode, event)
@@ -212,6 +238,7 @@ class ArabicImeService : InputMethodService() {
         val physicalAlt = event.isAltPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.ALT)
         physicalAltVisible = RemoteLayer.active(physicalAlt, shift, prefs.shiftIsAlt)
         if (event.isCtrlPressed || event.isMetaPressed || rawModifiers.active(event.deviceId, UsbScanCodes.Action.CTRL) || rawModifiers.active(event.deviceId, UsbScanCodes.Action.META)) return super.onKeyDown(rawKeyCode, event)
+        if (gamepadKeyDown(event)) return handled(event)
         if (remoteShortcut(event)) return true
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && isInputViewShown) {
             if (event.repeatCount == 0) {
@@ -278,6 +305,7 @@ class ArabicImeService : InputMethodService() {
         return handled(event)
     }
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (gamepadKeyUp(event)) return true
         rawModifiers.update(event.deviceId, event.scanCode, false)
         val released = RemoteKeys.actionKeyCode(event)
         val physicalAlt = rawModifiers.active(event.deviceId, UsbScanCodes.Action.ALT) ||

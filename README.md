@@ -21,7 +21,9 @@ An Arabic input method for Android TV boxes and USB air-mouse remotes with Engli
 - تبديل العربية والإنجليزية، ووضع للأرقام والرموز.
 - معالجة رموز المسح `scanCode` عندما يرسل الجهاز `KEYCODE_UNKNOWN` بدل الحروف.
 - تعيين الأزرار يدويًا للريموتات المختلفة، مع حفظ التعيينات على الجهاز.
-- دون إنترنت أو إعلانات أو تحليلات. لا يحفظ النصوص المكتوبة أو يرسلها.
+- وضع Gamepad تجريبي منفصل: تعيين افتراضي لـ D-pad وA/B/X/Y وStart/Select وL1/R1/L2/R2، مع إمكانية إعادة التعيين؛ أوقفه للعودة إلى الكتابة.
+- فحص تحديثات GitHub Releases من داخل التطبيق، مع فتح ملف APK المنشور للتنزيل.
+- لا إعلانات أو تحليلات. يستخدم الإنترنت فقط عند طلب فحص GitHub Releases، ولا يحفظ النصوص المكتوبة أو يرسلها.
 
 التوزيع مقترح لتسهيل التذكر، وليس توزيع لوحة المفاتيح العربية القياسي. لا يوجد مقابل صوتي إنجليزي مباشر لكل حرف عربي.
 
@@ -101,7 +103,9 @@ Type Arabic with the English keyboard on a USB remote, using mnemonic positions 
 - Arabic/English switching and a numeric/symbol mode.
 - Scan-code recovery for boxes reporting `KEYCODE_UNKNOWN` instead of letters.
 - Device-local manual key assignments for other remotes.
-- No Internet permission, ads or analytics. Typed text is not stored or transmitted.
+- Experimental separate Gamepad mode with editable default D-pad, A/B/X/Y, Start/Select and shoulder/trigger mappings.
+- GitHub Releases update checker that opens the published APK for download.
+- No ads or analytics. Internet is used only when you request a GitHub Releases update check. Typed text is not stored or transmitted.
 
 This is a proposed mnemonic layout, not the standard Arabic PC layout. Some Arabic sounds have no direct English-letter equivalent.
 

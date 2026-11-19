@@ -33,8 +33,16 @@ class Prefs(context: Context) {
     var gamepadMode: Boolean
         get() = prefs.getBoolean("gamepadMode", false)
         set(value) { prefs.edit().putBoolean("gamepadMode", value).apply() }
+    var gamepadAuto: Boolean
+        get() = prefs.getBoolean("gamepadAuto", false)
+        set(value) { prefs.edit().putBoolean("gamepadAuto", value).apply() }
+    var gamePackages: String
+        get() = prefs.getString("gamePackages", "").orEmpty()
+        set(value) { prefs.edit().putString("gamePackages", value).apply() }
     var gamepadBindings: Map<GamepadButton, GamepadBinding>
-        get() = GamepadBindings.decode(prefs.getString("gamepadBindings", "").orEmpty())
+        get() = GamepadBindings.decode(prefs.getString("gamepadBindings", "").orEmpty()).let {
+            if (it.isEmpty()) GamepadDefaults.bindings() else it
+        }
         set(value) { prefs.edit().putString("gamepadBindings", GamepadBindings.encode(value)).apply() }
     var panelOpacity: Int
         get() = prefs.getInt("opacity", 80)

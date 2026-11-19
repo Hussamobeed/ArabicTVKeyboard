@@ -23,4 +23,11 @@ class GamepadMappingTest {
         assertTrue(KeyEvent.KEYCODE_POWER in GamepadSafety.blockedKeyCodes)
         assertTrue(KeyEvent.KEYCODE_VOLUME_UP in GamepadSafety.blockedKeyCodes)
     }
+
+    @Test
+    fun defaultsProvideEditableKeyboardLayout() {
+        assertEquals(KeyEvent.KEYCODE_Z, GamepadButton.A.fallbackKeyCode)
+        assertEquals(KeyEvent.KEYCODE_DPAD_UP, GamepadDefaults.bindings().getValue(GamepadButton.DPAD_UP).keyCode)
+        assertEquals("*", GamepadDefaults.bindings().getValue(GamepadButton.A).deviceDescriptor)
+    }
 }

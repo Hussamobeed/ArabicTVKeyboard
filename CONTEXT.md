@@ -91,6 +91,8 @@ The user confirmed that Gamepad should be a separate switchable mode: enable it 
 
 The initial code slice now adds `GamepadMapping.kt` with logical controls (`D-pad`, `A/B/X/Y`, `Start/Select`, and shoulder/trigger buttons), stable persisted bindings keyed by device descriptor/key code/scan code, and a protected list for Home, Back, Power, and Volume keys. `Prefs.kt` stores the Gamepad mode flag and bindings. `RemoteTestActivity.kt` exposes a separate experimental Gamepad switch, assignment flow, profile clearing, and event display. `MainActivity.kt` links to the experimental Gamepad setup. This profile currently records and identifies remote buttons; it intentionally does not claim to create a system-wide Android `InputDevice` or inject controls into games.
 
+The next code slice adds three requested features. `ReleaseUpdateChecker.kt` checks the public GitHub `GET /repos/Hussamobeed/ArabicTVKeyboard/releases/latest` endpoint and opens the latest APK asset (or release page) in the browser; it does not silently install an APK. `INTERNET` is now declared because the user explicitly requested this feature. Gamepad defaults now exist for D-pad, `A/B/X/Y`, `Start/Select`, and `L1/R1/L2/R2`; they use a standard keyboard fallback (`Z/X/A/S`, Enter/Space, and `Q/W/E/R`) and can be overridden per remote button in the diagnostic screen. `ArabicImeService` translates assigned buttons to those fallback key events only when the separate Gamepad mode is active and an input connection exists. `GamepadAutoDetector.kt` optionally checks the foreground package through `UsageStatsManager`; the user must enable Usage Access and enter package names, because Android requires that special access. Auto-detection is best-effort and cannot make a normal IME receive events from games that do not expose an input connection.
+
 ## Open questions for the user/device test
 
 - What Android TV box brand/model and Android version are being used?
@@ -119,3 +121,12 @@ The initial code slice now adds `GamepadMapping.kt` with logical controls (`D-pa
 - Added JVM unit coverage for binding round-trip persistence and protected system keys.
 - The requested validation command (`./gradlew testDebugUnitTest lintDebug assembleDebug`) was attempted, but the sandbox has no Android SDK configured: `ANDROID_HOME` and `ANDROID_SDK_ROOT` are empty and no common SDK path was found. The build stopped before compilation with `SDK location not found`; no test/lint/build result is available yet.
 - The next implementation step is to validate on an Android-SDK-equipped environment, then use the user's TV box to capture real remote event metadata and decide whether a keyboard/emulator fallback or a privileged/companion architecture is required for true gamepad behavior.
+
+### 2026-11-19 — Updates and automatic Gamepad activation
+
+- Added GitHub Releases update checking and browser handoff for the latest APK asset.
+- Added default editable Gamepad bindings and a visible mapping summary.
+- Added optional Usage Access based foreground-game detection with a comma-separated package allowlist.
+- Added separate-mode fallback key translation inside an active input connection; normal writing remains unchanged when Gamepad mode is off.
+- Added `INTERNET` and `PACKAGE_USAGE_STATS` manifest declarations. The latter is a special access that the user must grant in Android Settings.
+- `git diff --check` passes. Full Android compilation still requires the Android SDK and should be verified by the repository's GitHub Actions workflow.

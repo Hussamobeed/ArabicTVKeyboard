@@ -13,6 +13,7 @@ class RemoteTestActivity : Activity() {
     private lateinit var layerStatus: TextView
     private var pending: String? = null
     private var pendingGamepad: GamepadButton? = null
+    private var gamepadSummaryView: TextView? = null
     private val modifiers = RawModifiers()
     private val captured = mutableSetOf<String>()
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,6 +32,8 @@ class RemoteTestActivity : Activity() {
             isChecked = prefs.gamepadMode
             setOnCheckedChangeListener { _, checked -> prefs.gamepadMode = checked }
         })
+        gamepadSummaryView = Ui.text(this, gamepadSummary(), 15f)
+        root.addView(gamepadSummaryView)
         root.addView(Ui.button(this, "تعيين زر Gamepad") {
             val buttons = GamepadButton.values()
             AlertDialog.Builder(this).setTitle("اختر وظيفة ثم اضغط زر الريموت")
@@ -42,6 +45,7 @@ class RemoteTestActivity : Activity() {
         })
         root.addView(Ui.button(this, "مسح ملف Gamepad") {
             prefs.gamepadBindings = emptyMap()
+            gamepadSummaryView?.text = gamepadSummary()
             Toast.makeText(this, "تم مسح تعيينات Gamepad", Toast.LENGTH_SHORT).show()
         })
         root.addView(Ui.button(this, "تعيين زر إلى حرف عربي") {
@@ -90,6 +94,7 @@ class RemoteTestActivity : Activity() {
                     )
                     prefs.gamepadBindings = updated
                     pendingGamepad = null
+                    gamepadSummaryView?.text = gamepadSummary()
                     report.text = "حُفظ Gamepad ${target.label}\n${KeyEvent.keyCodeToString(code)}\nkeyCode=$code  scanCode=${event.scanCode}\nUSB: ${event.device?.name ?: "—"}"
                     captured.add(pressed)
                     return true
@@ -138,6 +143,9 @@ class RemoteTestActivity : Activity() {
         val active = prefs.remoteAltLocked || RemoteLayer.active(alt, shift, prefs.shiftIsAlt)
         layerStatus.text = if (active) "ALT / الحروف الإضافية مفعّل${if (shift && !alt) " — يصل من الريموت باسم SHIFT" else ""}" else "ALT غير مفعّل"
         layerStatus.setTextColor(if (active) Ui.cyan else android.graphics.Color.WHITE)
+    }
+    private fun gamepadSummary(): String = "تعيينات Gamepad الحالية:\n" + prefs.gamepadBindings.entries.joinToString(" • ") {
+        "${it.key.label}=${KeyEvent.keyCodeToString(it.value.keyCode)}${if (it.value.scanCode != 0) "/${it.value.scanCode}" else ""}"
     }
     override fun onPause() { modifiers.clear(); captured.clear(); super.onPause() }
 }
