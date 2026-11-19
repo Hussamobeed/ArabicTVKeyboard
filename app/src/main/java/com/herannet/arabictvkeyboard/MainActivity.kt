@@ -59,17 +59,12 @@ class MainActivity : Activity() {
             isChecked = prefs.gamepadAuto
             setOnCheckedChangeListener { _, checked -> prefs.gamepadAuto = checked }
         })
-        content.addView(Ui.text(this, "اكتب أسماء حزم الألعاب مفصولة بفواصل، مثل: com.example.emulator, org.example.game. يحتاج الكشف التلقائي إلى Usage Access من إعدادات Android.", 15f))
-        val gamePackages = EditText(this).apply {
-            hint = "com.example.emulator, org.example.game"
-            setText(prefs.gamePackages)
-            textSize = 16f
-            setSingleLine(false)
-            setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) prefs.gamePackages = text.toString() }
-        }
-        content.addView(gamePackages, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 70)))
-        content.addView(Ui.button(this, "حفظ أسماء الألعاب وفتح Usage Access") {
-            prefs.gamePackages = gamePackages.text.toString()
+        val selectedGames = Ui.text(this, selectedGamesSummary(prefs), 15f)
+        content.addView(selectedGames)
+        content.addView(Ui.button(this, "اختيار الألعاب المثبتة تلقائيًا") {
+            showGamePicker(prefs, selectedGames)
+        })
+        content.addView(Ui.button(this, "حفظ الاختيار وفتح Usage Access") {
             try { startActivity(GamepadAutoDetector.usageSettingsIntent(this)) }
             catch (_: ActivityNotFoundException) { startActivity(Intent(Settings.ACTION_SETTINGS)) }
         })
@@ -128,6 +123,32 @@ class MainActivity : Activity() {
 
     private fun installedVersion(): String =
         runCatching { packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0" }.getOrDefault("0.0.0")
+
+    private fun selectedGamesSummary(prefs: Prefs): String {
+        val count = GamepadAutoDetector.configuredPackages(prefs.gamePackages).size
+        return if (count == 0) "لم يتم اختيار لعبة بعد. اضغط اختيار الألعاب المثبتة." else "الألعاب المختارة تلقائيًا: $count"
+    }
+
+    private fun showGamePicker(prefs: Prefs, summary: android.widget.TextView) {
+        val apps = GamepadAutoDetector.installedLaunchableApps(this)
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "لم يتم العثور على تطبيقات قابلة للتشغيل", Toast.LENGTH_LONG).show()
+            return
+        }
+        val saved = GamepadAutoDetector.configuredPackages(prefs.gamePackages)
+        val selected = apps.map { if (saved.isNotEmpty()) it.packageName in saved else it.likelyGame }.toBooleanArray()
+        val labels = apps.map { app -> "${app.label}  (${app.packageName})" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("اختر الألعاب أو المحاكيات")
+            .setMultiChoiceItems(labels, selected) { _, which, checked -> selected[which] = checked }
+            .setPositiveButton("حفظ") { _, _ ->
+                prefs.gamePackages = apps.filterIndexed { index, _ -> selected[index] }.joinToString(",") { it.packageName }
+                summary.text = selectedGamesSummary(prefs)
+                Toast.makeText(this, "تم حفظ الألعاب المختارة", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
+    }
 
     private fun isNewer(candidate: List<Int>, installed: List<Int>): Boolean {
         val size = maxOf(candidate.size, installed.size)

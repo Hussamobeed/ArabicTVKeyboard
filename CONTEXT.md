@@ -137,3 +137,10 @@ The next code slice adds three requested features. `ReleaseUpdateChecker.kt` che
 - Local reproduction with Android SDK 35 and JDK 17 found the initial Kotlin errors: unavailable `BuildConfig` references and assigning a `String` directly to `EditText.text`.
 - After fixing those, lint reported `PACKAGE_USAGE_STATS` as a protected permission. The permission is intentionally needed for the documented Usage Access settings flow, so the manifest now has a narrowly scoped `tools:ignore="ProtectedPermissions"` on that permission.
 - Final local validation passed: `./gradlew testDebugUnitTest lintDebug assembleDebug` with Android SDK 35 and JDK 17. Lint still reports existing/non-fatal warnings, but no errors.
+
+### 2026-11-19 — Automatic game selection and real GitHub Releases
+
+- Replaced manual game package typing in `MainActivity` with an installed-app multi-select picker. It discovers launchable apps, prioritizes Android apps categorized as games, and also recognizes common game/emulator names (`game`, `emulator`, `retro`, `playstation`, `ps1`, `psx`, `gta`, `arcade`). The selected package list is still stored internally for foreground detection, but the user never needs to type package names.
+- Updated `.github/workflows/android.yml`: repository contents permission is now write-enabled, and pushes of tags matching `v*` publish `dist/ArabicTVKeyboard.apk` plus checksum/build files as a GitHub Release using `gh release create`.
+- The in-app updater targets GitHub's latest published Release endpoint. To publish an update, push a version tag such as `v0.1.12`; a normal `main` push continues to produce validation and downloadable workflow artifacts but does not create a Release.
+- Local validation after this change passed: `./gradlew testDebugUnitTest lintDebug assembleDebug` with Android SDK 35 and JDK 17.

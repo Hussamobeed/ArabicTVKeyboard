@@ -223,9 +223,9 @@ cd ArabicTVKeyboard
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-The Gradle distribution is checksum-pinned. CI runs unit tests, lint, a debug build, then a signed release build and certificate verification. Artifacts are retained for 90 days.
+The Gradle distribution is checksum-pinned. CI runs unit tests, lint, a debug build, then a signed release build and certificate verification. Artifacts are retained for 90 days. Push a tag such as `v0.1.12` to publish the signed APK as a GitHub Release; the in-app updater reads that latest Release and opens its APK asset.
 
-يتحقق البناء الآلي من الاختبارات والتوافق، ثم يبني APK ويفحص شهادته. تبقى مرفقات Actions متاحة لمدة 90 يومًا.
+يتحقق البناء الآلي من الاختبارات والتوافق، ثم يبني APK ويفحص شهادته. تبقى مرفقات Actions متاحة لمدة 90 يومًا. ادفع وسمًا مثل `v0.1.12` لنشر APK موقّع كإصدار GitHub؛ يبحث التطبيق عن هذا الإصدار لتنزيل التحديث.
 
 ### Update identity / توقيع التحديثات
 
