@@ -12,6 +12,7 @@ class RemoteTestActivity : Activity() {
     private lateinit var report: TextView
     private lateinit var layerStatus: TextView
     private var pending: String? = null
+    private var pendingGamepad: GamepadButton? = null
     private val modifiers = RawModifiers()
     private val captured = mutableSetOf<String>()
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,6 +24,26 @@ class RemoteTestActivity : Activity() {
         root.addView(layerStatus)
         report = Ui.text(this, "لم يُضغط زر بعد", 17f)
         root.addView(report)
+        root.addView(Ui.text(this, "وضع Gamepad تجريبي: يحفظ تعيينات أزرار الريموت فقط. لا ينشئ هذا التطبيق جهاز Android gamepad حقيقيًا ولا يعترض أزرار النظام.", 16f))
+        root.addView(android.widget.CheckBox(this).apply {
+            text = "تفعيل ملف Gamepad التجريبي"
+            textSize = 17f
+            isChecked = prefs.gamepadMode
+            setOnCheckedChangeListener { _, checked -> prefs.gamepadMode = checked }
+        })
+        root.addView(Ui.button(this, "تعيين زر Gamepad") {
+            val buttons = GamepadButton.values()
+            AlertDialog.Builder(this).setTitle("اختر وظيفة ثم اضغط زر الريموت")
+                .setItems(buttons.map { it.label }.toTypedArray()) { _, which ->
+                    pendingGamepad = buttons[which]
+                    pending = null
+                    report.text = "اضغط زر الريموت لوظيفة ${pendingGamepad!!.label} • BACK للإلغاء"
+                }.show()
+        })
+        root.addView(Ui.button(this, "مسح ملف Gamepad") {
+            prefs.gamepadBindings = emptyMap()
+            Toast.makeText(this, "تم مسح تعيينات Gamepad", Toast.LENGTH_SHORT).show()
+        })
         root.addView(Ui.button(this, "تعيين زر إلى حرف عربي") {
             val letters = (KeyboardLayout.primary.values + KeyboardLayout.secondary.values + ('0'..'9').map { it.toString() } + listOf("،", ".", "؟", "@", "/")).distinct()
             AlertDialog.Builder(this).setTitle("اختر الحرف ثم اضغط زر الريموت")
@@ -53,12 +74,30 @@ class RemoteTestActivity : Activity() {
             modifiers.update(event.deviceId, event.scanCode, true, event.repeatCount)
             val code = event.keyCode
             if (code == KeyEvent.KEYCODE_BACK && pending != null) { pending = null; report.text = "أُلغي التعيين"; captured.add(pressed); return true }
+            if (code == KeyEvent.KEYCODE_BACK && pendingGamepad != null) { pendingGamepad = null; report.text = "أُلغي تعيين Gamepad"; captured.add(pressed); return true }
             val shift = event.isShiftPressed || modifiers.active(event.deviceId, UsbScanCodes.Action.SHIFT)
             val alt = event.isAltPressed || modifiers.active(event.deviceId, UsbScanCodes.Action.ALT)
             showLayer(alt, shift)
             val character = RemoteKeys.character(event, shift, modifiers.caps(event.deviceId))
             val letter = RemoteKeys.letter(event)
             val physicalLayer = RemoteLayer.active(alt, shift, prefs.shiftIsAlt)
+            if (pendingGamepad != null) {
+                val target = pendingGamepad!!
+                if (code !in GamepadSafety.blockedKeyCodes) {
+                    val updated = prefs.gamepadBindings.toMutableMap()
+                    updated[target] = GamepadBinding(
+                        event.device?.descriptor ?: "device:${event.deviceId}", code, event.scanCode
+                    )
+                    prefs.gamepadBindings = updated
+                    pendingGamepad = null
+                    report.text = "حُفظ Gamepad ${target.label}\n${KeyEvent.keyCodeToString(code)}\nkeyCode=$code  scanCode=${event.scanCode}\nUSB: ${event.device?.name ?: "—"}"
+                    captured.add(pressed)
+                    return true
+                }
+                report.append("\nهذا زر نظام محمي ولا يمكن تعيينه")
+                captured.add(pressed)
+                return true
+            }
             val custom = RemoteLayer.calibrated(
                 prefs.mapped(RemoteKeys.identity(event, shift, alt), code, event.unicodeChar),
                 prefs.mapped(RemoteKeys.identity(event, true, false), 0, 0),
@@ -66,7 +105,9 @@ class RemoteTestActivity : Activity() {
             val resolved = if (prefs.remoteNumbers) NumberMode.resolve(letter, character, event.scanCode)
                 else RemoteLayer.resolve(letter, character, prefs.remoteAltLocked, alt, shift, prefs.shiftIsAlt,
                 prefs.blueSymbols, true, false, custom)
-            report.text = "${KeyEvent.keyCodeToString(code)}\nkeyCode=$code  scanCode=${event.scanCode}\nunicode=${event.unicodeChar}  ASCII=${character ?: '—'}  عربي=${resolved ?: "—"}\nALT=$alt  SHIFT=$shift  repeat=${event.repeatCount}\nUSB: ${event.device?.name ?: "—"}"
+            val gamepad = GamepadBindings.find(event, prefs.gamepadBindings)
+            report.text = "${KeyEvent.keyCodeToString(code)}\nkeyCode=$code  scanCode=${event.scanCode}\nunicode=${event.unicodeChar}  ASCII=${character ?: '—'}  عربي=${resolved ?: "—"}\nALT=$alt  SHIFT=$shift  repeat=${event.repeatCount}\nUSB: ${event.device?.name ?: "—"}" +
+                (gamepad?.let { "\nGamepad: ${it.label}" } ?: "")
             val shortcut = RemoteModeShortcuts.binding(event.device?.name, code, event.scanCode)
             if (shortcut != null) {
                 report.append(if (shortcut == RemoteModeShortcuts.Action.LOCK_ALT) "\nزر ALT المثبت جاهز — يعمل داخل صندوق الكتابة" else "\nزر وضع الأرقام جاهز — يعمل داخل صندوق الكتابة")

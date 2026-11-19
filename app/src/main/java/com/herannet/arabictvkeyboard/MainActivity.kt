@@ -34,6 +34,8 @@ class MainActivity : Activity() {
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         })
         content.addView(Ui.button(this, "اختبار الريموت وتعيين الأزرار") { startActivity(Intent(this, RemoteTestActivity::class.java)) })
+        content.addView(Ui.text(this, "Gamepad تجريبي: عيّن D-pad وA/B/X/Y وStart/Select من شاشة اختبار الريموت. هذا الإصدار يحفظ الملف ويعرض الأحداث فقط؛ لا يستطيع IME عادي إنشاء جهاز gamepad نظامي حقيقي دون صلاحيات خاصة.", 15f))
+        content.addView(Ui.button(this, "فتح إعداد Gamepad التجريبي") { startActivity(Intent(this, RemoteTestActivity::class.java)) })
         fun check(title: String, value: Boolean, change: (Boolean) -> Unit) {
             content.addView(CheckBox(this).apply {
                 text = title; textSize = 17f; isChecked = value

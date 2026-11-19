@@ -30,6 +30,12 @@ class Prefs(context: Context) {
     var remoteNumbers: Boolean
         get() = prefs.getBoolean("remoteNumbers", false)
         set(value) { prefs.edit().putBoolean("remoteNumbers", value).apply() }
+    var gamepadMode: Boolean
+        get() = prefs.getBoolean("gamepadMode", false)
+        set(value) { prefs.edit().putBoolean("gamepadMode", value).apply() }
+    var gamepadBindings: Map<GamepadButton, GamepadBinding>
+        get() = GamepadBindings.decode(prefs.getString("gamepadBindings", "").orEmpty())
+        set(value) { prefs.edit().putString("gamepadBindings", GamepadBindings.encode(value)).apply() }
     var panelOpacity: Int
         get() = prefs.getInt("opacity", 80)
         set(value) { prefs.edit().putInt("opacity", value.coerceIn(35, 100)).apply() }
